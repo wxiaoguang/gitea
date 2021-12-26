@@ -18,7 +18,7 @@ func NewLoggerHandlerV1(level log.Level) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			start := time.Now()
 
-			_ = log.GetLogger("router").Log(0, level, "Started %s %s for %s", log.ColoredMethod(req.Method), req.URL.RequestURI(), req.RemoteAddr)
+			_ = log.GetLogger("router_v1").Log(0, level, "Started %s %s for %s", log.ColoredMethod(req.Method), req.URL.RequestURI(), req.RemoteAddr)
 
 			next.ServeHTTP(w, req)
 
@@ -27,7 +27,7 @@ func NewLoggerHandlerV1(level log.Level) func(next http.Handler) http.Handler {
 				status = v.Status()
 			}
 
-			_ = log.GetLogger("router").Log(0, level, "Completed %s %s %v %s in %v", log.ColoredMethod(req.Method), req.URL.RequestURI(), log.ColoredStatus(status), log.ColoredStatus(status, http.StatusText(status)), log.ColoredTime(time.Since(start)))
+			_ = log.GetLogger("router_v1").Log(0, level, "Completed %s %s %v %s in %v", log.ColoredMethod(req.Method), req.URL.RequestURI(), log.ColoredStatus(status), log.ColoredStatus(status, http.StatusText(status)), log.ColoredTime(time.Since(start)))
 		})
 	}
 }

@@ -280,6 +280,18 @@ func newRouterLogService() {
 		options.bufferLength = Cfg.Section("log").Key("BUFFER_LEN").MustInt64(10000)
 		generateNamedLogger("router", options)
 	}
+
+	Cfg.Section("log").Key("ROUTER_V1").MustString("console")
+
+	EnableRouterV1 = Cfg.Section("log").Key("ENABLE_ROUTER_V1").MustBool(false)
+	if EnableRouterV1 {
+		options := newDefaultLogOptions()
+		options.filename = filepath.Join(LogRootPath, "router.log")
+		options.flags = "date,time" // For the router we don't want any prefixed flags
+		options.bufferLength = Cfg.Section("log").Key("BUFFER_LEN").MustInt64(10000)
+		generateNamedLogger("router_v1", options)
+	}
+
 }
 
 func newLogService() {

@@ -68,23 +68,25 @@ multiple subloggers that will log to files.
 
 ### The "Router" logger
 
-You can disable Router log by setting `DISABLE_ROUTER_LOG`.
+The Router logger has been substantially changed in v1.16. The old router logger is still available as `router_v1`
+(see below) but it is deprecated and will be removed at some point.
+
+You can disable Router log by setting `DISABLE_ROUTER_LOG` or setting all of its sublogger configurations to `none`.
 
 You can configure the outputs of this
 router log by setting the `ROUTER` value in the `[log]` section of the
-configuration. `ROUTER` will default to `console` if unset. The Gitea
-Router logs at the `Info` level by default, but this can be
-changed if desired by setting the `ROUTER_LOG_LEVEL` value.
+configuration. `ROUTER` will default to `console` if unset and will default to same level as main logger.
 
-Please note, setting the `LEVEL` of this logger to a level above
-`ROUTER_LOG_LEVEL` will result in no router logs.
+The router logger will log various things at different levels:
 
-You can control the output format by setting a log handler to `ROUTER_LOG_HANDLER`.
-Now Gitea has two log handlers:
-* `router_logger_v1` is the default handler for Gitea before 1.16
-* `router_logger_v2` is the default handler for Gitea from 1.16, it's more meaningful and friendly.
+- `started` messages will be logged at DEBUG level
+- `slow` routers will be logged at WARN
+- `polling`/`completed` routers will be logged at INFO
+- `failed` routers will be logged at WARN
 
-If you have applications depending on the log format (eg: fail2ban), please make sure you use the correct log handler and log format.
+The logging level for the router will default to that of the main configuration. Set `[log.<mode>.router]` `LEVEL` to change this.
+
+If you have applications depending on the log format (eg: fail2ban), please update your configuration or use the old logger.
 
 Each output sublogger for this logger is configured in
 `[log.sublogger.router]` sections. There are certain default values
@@ -98,6 +100,34 @@ which will not be inherited from the `[log]` or relevant
 
 NB: You can redirect the router logger to send its events to the Gitea
 log using the value: `ROUTER = ,`
+
+### The "Router_V1" logger
+
+The original router logger is still available by setting `ENABLE_ROUTER_V1`.
+
+You can configure the outputs of this
+router log by setting the `ROUTER_V1` value in the `[log]` section of the
+configuration. `ROUTER_V1` will default to `console` if unset. The Gitea
+Router logs at the `Info` level by default, but this can be
+changed if desired by setting the `ROUTER_V1_LOG_LEVEL` value.
+
+Please note, setting the `LEVEL` of this logger to a level above
+`ROUTER_V1_LOG_LEVEL` will result in no router logs.
+
+If you have applications depending on the log format (eg: fail2ban), please make sure you use the correct log handler and log format.
+
+Each output sublogger for this logger is configured in
+`[log.sublogger.router_v1]` sections. There are certain default values
+which will not be inherited from the `[log]` or relevant
+`[log.sublogger]` sections:
+
+- `FILE_NAME` will default to `%(ROOT_PATH)/router.log`
+- `FLAGS` defaults to `date,time`
+- `EXPRESSION` will default to `""`
+- `PREFIX` will default to `""`
+
+NB: You can redirect the router logger to send its events to the Gitea
+log using the value: `ROUTER_V1 = ,` (but remember to enable it first using `ENABLE_ROUTER_V1`.)
 
 ### The "Access" logger
 
