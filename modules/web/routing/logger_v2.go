@@ -37,7 +37,7 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 		shortFilename := ""
 		line := 0
 		shortName := ""
-		isError := false
+		isUnknownHandler := false
 
 		record.lock.RLock()
 		isLongPolling := record.isLongPolling
@@ -47,7 +47,7 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 			// we might not find all handlers, so if a handler has not called `UpdateFuncInfo`, we won't know its information
 			// in such case, we should debug to find what handler it is and use `UpdateFuncInfo` to report its information
 			shortFilename = "unknown-handler"
-			isError = true
+			isUnknownHandler = true
 		}
 		record.lock.RUnlock()
 
@@ -89,7 +89,7 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 					status = v.Status()
 				}
 				level := log.INFO
-				if isError {
+				if isUnknownHandler {
 					level = log.ERROR
 				}
 
