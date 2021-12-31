@@ -5,7 +5,6 @@
 package routing
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -26,6 +25,15 @@ func NewLoggerHandlerV2() func(next http.Handler) http.Handler {
 	return manager.handler
 }
 
+var (
+	startMessage          = log.NewColoredValueBytes("started  ", log.DEBUG.Color())
+	slowMessage           = log.NewColoredValueBytes("slow     ", log.WARN.Color())
+	pollingMessage        = log.NewColoredValueBytes("polling  ", log.INFO.Color())
+	failedMessage         = log.NewColoredValueBytes("failed   ", log.WARN.Color())
+	completedMessage      = log.NewColoredValueBytes("completed", log.INFO.Color())
+	unknownHandlerMessage = log.NewColoredValueBytes("completed", log.ERROR.Color())
+)
+
 func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 	return func(trigger Event, record *requestRecord) {
 		if trigger == StartEvent && !logger.IsDebug() {
@@ -34,72 +42,64 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 			return
 		}
 
-		shortFilename := ""
-		line := 0
-		shortName := ""
-		isUnknownHandler := false
-
-		record.lock.RLock()
-		isLongPolling := record.isLongPolling
-		if record.funcInfo != nil {
-			shortFilename, line, shortName = record.funcInfo.shortFile, record.funcInfo.line, record.funcInfo.shortName
-		} else {
-			// we might not find all handlers, so if a handler has not called `UpdateFuncInfo`, we won't know its information
-			// in such case, we should debug to find what handler it is and use `UpdateFuncInfo` to report its information
-			shortFilename = "unknown-handler"
-			isUnknownHandler = true
-		}
-		record.lock.RUnlock()
-
 		req := record.request
-
 		if trigger == StartEvent {
 			// when a request starts, we have no information about the handler function information, we only have the request path
-			logger.Debug("router: %s %v %s for %s", log.NewColoredValueBytes("started  ", log.DEBUG.Color()), log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr)
+			logger.Debug("router: %s %v %s for %s", startMessage, log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr)
 			return
 		}
 
-		handlerFuncInfo := fmt.Sprintf("%s:%d(%s)", shortFilename, line, shortName)
+		// Get data from the record
+		record.lock.Lock()
+		handlerFuncInfo := record.funcInfo.String()
+		isLongPolling := record.isLongPolling
+		isUnknownHandler := record.funcInfo == nil
+		panicErr := record.panicError
+		record.lock.Unlock()
+
 		if trigger == StillExecutingEvent {
-			message := "slow      "
+			message := slowMessage
 			level := log.WARN
 			if isLongPolling {
 				level = log.INFO
-				message = "polling  "
+				message = pollingMessage
 			}
 			_ = logger.Log(0, level, "router: %s %v %s for %s, elapsed %v @ %s",
-				log.NewColoredValueBytes(message, level.Color()),
+				message,
 				log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr,
 				log.ColoredTime(time.Since(record.startTime)),
 				handlerFuncInfo,
 			)
-		} else {
-			if record.panicError != nil {
-				_ = logger.Log(0, log.WARN, "router: %s %v %s for %s, panic in %v @ %s, err=%v",
-					log.NewColoredValueBytes("failed   ", log.WARN.Color()),
-					shortFilename, line, shortName,
-					log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr,
-					log.ColoredTime(time.Since(record.startTime)),
-					handlerFuncInfo,
-					record.panicError,
-				)
-			} else {
-				var status int
-				if v, ok := record.responseWriter.(context.ResponseWriter); ok {
-					status = v.Status()
-				}
-				level := log.INFO
-				if isUnknownHandler {
-					level = log.ERROR
-				}
-
-				_ = logger.Log(0, level, "router: %s %v %s for %s, %v %v in %v @ %s",
-					log.NewColoredValueBytes("completed", level.Color()),
-					log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr,
-					log.ColoredStatus(status), log.ColoredStatus(status, http.StatusText(status)), log.ColoredTime(time.Since(record.startTime)),
-					handlerFuncInfo,
-				)
-			}
+			return
 		}
+
+		if panicErr != nil {
+			_ = logger.Log(0, log.WARN, "router: %s %v %s for %s, panic in %v @ %s, err=%v",
+				failedMessage,
+				log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr,
+				log.ColoredTime(time.Since(record.startTime)),
+				handlerFuncInfo,
+				panicErr,
+			)
+			return
+		}
+
+		var status int
+		if v, ok := record.responseWriter.(context.ResponseWriter); ok {
+			status = v.Status()
+		}
+		level := log.INFO
+		message := completedMessage
+		if isUnknownHandler {
+			level = log.ERROR
+			message = unknownHandlerMessage
+		}
+
+		_ = logger.Log(0, level, "router: %s %v %s for %s, %v %v in %v @ %s",
+			message,
+			log.ColoredMethod(req.Method), req.RequestURI, req.RemoteAddr,
+			log.ColoredStatus(status), log.ColoredStatus(status, http.StatusText(status)), log.ColoredTime(time.Since(record.startTime)),
+			handlerFuncInfo,
+		)
 	}
 }
