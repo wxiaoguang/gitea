@@ -26,7 +26,7 @@ async function processFile(file, {prefix, fullName} = {}) {
   }
 
   // Set the `xmlns` attribute so that the files are displayable in standalone documents
-  // The svg backend module will strip the attribute during startup for inline display
+  // The svg backend module (during startup) and webpack minimizer (for production) will remove the attribute for inline display
   const {data} = optimize(await readFile(file, 'utf8'), {
     plugins: [
       {name: 'preset-default'},

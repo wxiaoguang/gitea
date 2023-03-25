@@ -10,6 +10,7 @@ import {parse, dirname} from 'node:path';
 import webpack from 'webpack';
 import {fileURLToPath} from 'node:url';
 import {readFileSync} from 'node:fs';
+import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 
 const {EsbuildPlugin} = EsBuildLoader;
 const {SourceMapDevToolPlugin, DefinePlugin} = webpack;
@@ -90,6 +91,12 @@ export default {
   optimization: {
     minimize: isProduction,
     minimizer: [
+      new ImageMinimizerPlugin({
+        minimizer: {
+          implementation: ImageMinimizerPlugin.svgoMinify,
+          options: {encodeOptions: {plugins: ['removeXMLNS']}},
+        },
+      }),
       new EsbuildPlugin({
         target: 'es2015',
         minify: true,
