@@ -705,5 +705,23 @@
 				</div>
 			{{end}}
 		{{end}}
+		{{if .Issue.IsPull}}
+			<div class="ui divider"></div>
+			<div>
+				<button id="pr-gpt-review-comment" class="ui basic primary button gt-w-100">GPT Comment</button>
+				<script>
+					document.addEventListener('DOMContentLoaded', () => {
+						$('#pr-gpt-review-comment').on('click', async ()=>{
+							const comments = [];
+							for(const el of $('.comment-body')) {
+								comments.push($(el).text());
+							}
+							const resp = await $.post('{{AppSubUrl}}/devtest/gpt-review?type=comment', {_csrf: window.config.csrfToken, 'comments': comments.join('\n')});
+							alert(resp.reviewResponse);
+						});
+					});
+				</script>
+			</div>
+		{{end}}
 	</div>
 </div>

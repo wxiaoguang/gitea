@@ -1531,6 +1531,7 @@ func RegisterRoutes(m *web.Route) {
 	if !setting.IsProd {
 		m.Any("/devtest", devtest.List)
 		m.Any("/devtest/{sub}", devtest.Tmpl)
+		m.Post("/devtest/gpt-review", devtest.GptReview)
 	}
 
 	m.NotFound(func(w http.ResponseWriter, req *http.Request) {

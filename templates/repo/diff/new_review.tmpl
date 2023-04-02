@@ -1,4 +1,15 @@
 <div id="review-box">
+	<button id="pr-gpt-review-diff" class="ui basic primary button">GPT Review</button>
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			$('#pr-gpt-review-diff').on('click', async ()=>{
+				const diffOutput = await $.get('../{{.Issue.Index}}.patch');
+				const resp = await $.post('{{AppSubUrl}}/devtest/gpt-review?type=diff', {_csrf: window.config.csrfToken, diff: diffOutput});
+				alert(resp.reviewResponse);
+			});
+		});
+	</script>
+
 	<button class="ui tiny green button gt-ml-2 gt-mr-0 js-btn-review">
 		{{.locale.Tr "repo.diff.review"}}
 		<span class="ui small label review-comments-counter" data-pending-comment-number="{{.PendingCodeCommentNumber}}">{{.PendingCodeCommentNumber}}</span>

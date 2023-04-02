@@ -147,6 +147,7 @@ export function initRepoEditor() {
 
   (async () => {
     const editor = await createCodeEditor($editArea[0], $editFilename[0]);
+    $editArea[0]._editor = editor;
 
     // Using events from https://github.com/codedance/jquery.AreYouSure#advanced-usage
     // to enable or disable the commit button

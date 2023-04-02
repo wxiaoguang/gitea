@@ -24,6 +24,23 @@
 						{{end}}
 						<span>{{.locale.Tr "repo.editor.or"}} <a href="{{$.BranchLink}}{{if not .IsNewFile}}/{{PathEscapeSegments .TreePath}}{{end}}">{{.locale.Tr "repo.editor.cancel_lower"}}</a></span>
 						<input type="hidden" id="tree_path" name="tree_path" value="{{.TreePath}}" required>
+						<button class="gt-ml-3 ui button" id="editor-gpt-code-helper">
+							Ask GPT
+						</button>
+						<script>
+							document.addEventListener('DOMContentLoaded', () => {
+								$('#editor-gpt-code-helper').on('click', async (e)=>{
+									e.preventDefault();
+									const $textarea = $('#edit_area');
+									const code = $textarea.val();
+									const resp = await $.post('{{AppSubUrl}}/devtest/gpt-review?type=code', {_csrf: window.config.csrfToken, code: code});
+									alert(resp.reviewResponse);
+									let newCode = code;
+									newCode = newCode.replace(/\S.*TODO.*/, resp.reviewResponse)
+									$textarea[0]._editor.setValue(newCode);
+								});
+							});
+						</script>
 					</div>
 				</div>
 			</div>
