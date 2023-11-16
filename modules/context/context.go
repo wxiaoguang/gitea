@@ -204,6 +204,10 @@ func Contexter() func(next http.Handler) http.Handler {
 			ctx.Data["CsrfToken"] = ctx.Csrf.GetToken()
 			ctx.Data["CsrfTokenHtml"] = template.HTML(`<input type="hidden" name="_csrf" value="` + ctx.Data["CsrfToken"].(string) + `">`)
 
+			ctx.Data["ShowTwoFactorRequiredMessage"] = setting.EnforceTwoFactorAuth &&
+				ctx.Session.Get("uid") != nil &&
+				ctx.Session.Get("twofaAuthed") != true
+
 			// FIXME: do we really always need these setting? There should be someway to have to avoid having to always set these
 			ctx.Data["DisableMigrations"] = setting.Repository.DisableMigrations
 			ctx.Data["DisableStars"] = setting.Repository.DisableStars

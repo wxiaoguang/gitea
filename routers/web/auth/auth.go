@@ -89,10 +89,13 @@ func autoSignIn(ctx *context.Context) (bool, error) {
 
 	ctx.SetSiteCookie(setting.CookieRememberName, nt.ID+":"+token, setting.LogInRememberDays*timeutil.Day)
 
+	twofa, _ := auth.GetTwoFactorByUID(ctx, u.ID)
 	if err := updateSession(ctx, nil, map[string]any{
 		// Set session IDs
 		"uid":   u.ID,
 		"uname": u.Name,
+
+		auth_service.SessionKeyTwofaAuthed: twofa != nil,
 	}); err != nil {
 		return false, fmt.Errorf("unable to updateSession: %w", err)
 	}
@@ -311,6 +314,8 @@ func handleSignInFull(ctx *context.Context, u *user_model.User, remember, obeyRe
 		ctx.SetSiteCookie(setting.CookieRememberName, nt.ID+":"+token, setting.LogInRememberDays*timeutil.Day)
 	}
 
+	isTwofaAuthed := ctx.Session.Get("twofaUid") != nil
+
 	if err := updateSession(ctx, []string{
 		// Delete the openid, 2fa and linkaccount data
 		"openid_verified_uri",
@@ -323,6 +328,8 @@ func handleSignInFull(ctx *context.Context, u *user_model.User, remember, obeyRe
 	}, map[string]any{
 		"uid":   u.ID,
 		"uname": u.Name,
+
+		auth_service.SessionKeyTwofaAuthed: isTwofaAuthed,
 	}); err != nil {
 		ctx.ServerError("RegenerateSession", err)
 		return setting.AppSubURL + "/"
