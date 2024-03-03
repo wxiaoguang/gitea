@@ -166,7 +166,7 @@ func SignIn(ctx *context.Context) {
 		return
 	}
 
-	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, util.OptionalBoolTrue)
+	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
 	if err != nil {
 		ctx.ServerError("UserSignIn", err)
 		return
@@ -189,7 +189,7 @@ func SignIn(ctx *context.Context) {
 func SignInPost(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("sign_in")
 
-	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, util.OptionalBoolTrue)
+	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
 	if err != nil {
 		ctx.ServerError("UserSignIn", err)
 		return
@@ -417,7 +417,7 @@ func SignUp(ctx *context.Context) {
 
 	ctx.Data["SignUpLink"] = setting.AppSubURL + "/user/sign_up"
 
-	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, util.OptionalBoolTrue)
+	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
 	if err != nil {
 		ctx.ServerError("UserSignUp", err)
 		return
@@ -446,7 +446,7 @@ func SignUpPost(ctx *context.Context) {
 
 	ctx.Data["SignUpLink"] = setting.AppSubURL + "/user/sign_up"
 
-	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, util.OptionalBoolTrue)
+	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
 	if err != nil {
 		ctx.ServerError("UserSignUp", err)
 		return
