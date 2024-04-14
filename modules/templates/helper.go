@@ -153,6 +153,9 @@ func NewFuncMap() template.FuncMap {
 		"MermaidMaxSourceCharacters": func() int {
 			return setting.MermaidMaxSourceCharacters
 		},
+		"MarkdownEnableEasyMDE": func() bool {
+			return setting.Markdown.EnableEasyMDE
+		},
 
 		// -----------------------------------------------------------------
 		// render

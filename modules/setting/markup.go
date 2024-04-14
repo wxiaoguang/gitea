@@ -25,6 +25,7 @@ const (
 
 // Markdown settings
 var Markdown = struct {
+	EnableEasyMDE                  bool // don't document it, it is only for collecting user feedbacks
 	EnableHardLineBreakInComments  bool
 	EnableHardLineBreakInDocuments bool
 	CustomURLSchemes               []string `ini:"CUSTOM_URL_SCHEMES"`
@@ -60,6 +61,9 @@ type MarkupSanitizerRule struct {
 
 func loadMarkupFrom(rootCfg ConfigProvider) {
 	mustMapSetting(rootCfg, "markdown", &Markdown)
+
+	// don't document it, it is only for collecting user feedbacks
+	Markdown.EnableEasyMDE = rootCfg.Section("markdown").Key("ENABLE_EASYMDE").String() == "please tell us why you need it at https://github.com/go-gitea/gitea/issues"
 
 	MermaidMaxSourceCharacters = rootCfg.Section("markup").Key("MERMAID_MAX_SOURCE_CHARACTERS").MustInt(5000)
 	ExternalMarkupRenderers = make([]*MarkupRenderer, 0, 10)

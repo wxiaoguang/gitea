@@ -40,6 +40,7 @@ class ComboMarkdownEditor {
     container._giteaComboMarkdownEditor = this;
     this.options = options;
     this.container = container;
+    this.enableEasyMDE = this.container.getAttribute('data-enable-easymde') === 'true';
   }
 
   async init() {
@@ -191,7 +192,7 @@ class ComboMarkdownEditor {
   }
 
   async switchToUserPreference() {
-    if (this.userPreferredEditor === 'easymde') {
+    if (this.enableEasyMDE && this.userPreferredEditor === 'easymde') {
       await this.switchToEasyMDE();
     } else {
       this.switchToTextarea();
