@@ -50,16 +50,16 @@
   width: 300px;
 }
 
+.issue-content-right .dropdown > .menu {
+  max-width: 270px;
+  min-width: 0;
+}
+
 @media (max-width: 767.98px) {
   .issue-content-left,
   .issue-content-right {
     width: 100%;
   }
-}
-
-.repository .issue-content-right .menu {
-  overflow-x: auto;
-  max-height: 500px;
 }
 
 .repository .issue-content-right .ui.list .dependency {
@@ -111,11 +111,6 @@
   min-width: max-content;
   right: unset;
   left: 0;
-}
-
-.repository .filter.menu .ui.dropdown .menu .item {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .repository .select-label .desc {
@@ -654,15 +649,15 @@ td .commit-summary {
   padding: 2px .5rem;
 }
 
-.repository.view.issue .issue-title .index {
+.issue-title .index {
   color: var(--color-text-light-2);
 }
 
-.repository.view.issue .issue-title .label {
+.issue-title .label {
   margin-right: 10px;
 }
 
-.repository.view.issue .issue-title .edit-zone {
+.issue-title .edit-zone {
   margin-top: 10px;
 }
 
@@ -672,6 +667,7 @@ td .commit-summary {
   font-size: 14px !important;
   padding: 7px 10px !important;
   border-radius: var(--border-radius-medium) !important;
+  flex-shrink: 0;
 }
 
 .issue-state-label .svg {
@@ -1063,6 +1059,12 @@ td .commit-summary {
   margin-left: 15px;
 }
 
+.repository.view.issue .comment-list .event .detail .text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .repository.view.issue .comment-list .event .segments {
   box-shadow: none;
 }
@@ -1162,18 +1164,6 @@ td .commit-summary {
 
 .repository.compare.pull .markup {
   font-size: 14px;
-}
-
-.repository.compare.pull .title .issue-title {
-  margin-bottom: 0.5rem;
-}
-
-.repository.compare.pull .title .issue-title .index {
-  color: var(--color-text-light-2);
-}
-
-.repository .ui.dropdown.filter > .menu {
-  margin-top: 1px;
 }
 
 .repository.branches .commit-divergence .bar-group {
