@@ -28,48 +28,23 @@ const (
 )
 
 type ThemeMetaInfo struct {
-	FileName     string
-	InternalName string
-	DisplayName  string
+	FileName           string
+	InternalName       string
+	DisplayName        string
+	IsDarkTheme        bool
 }
 
+// extract CSS vars from CSS, taking the last occurence in a file to support combined themes like "auto"
 func parseThemeMetaInfoToMap(cssContent string) map[string]string {
-	/*
-		The theme meta info is stored in the CSS file's variables of `gitea-theme-meta-info` element,
-		which is a privately defined and is only used by backend to extract the meta info.
-		Not using ":root" because it is difficult to parse various ":root" blocks when importing other files,
-		it is difficult to control the overriding, and it's difficult to avoid user's customized overridden styles.
-	*/
-	metaInfoContent := cssContent
-	if pos := strings.LastIndex(metaInfoContent, "gitea-theme-meta-info"); pos >= 0 {
-		metaInfoContent = metaInfoContent[pos:]
-	}
-
-	reMetaInfoItem := `
-(
-\s*(--[-\w]+)
-\s*:
-\s*("(\\"|[^"])*")
-\s*;
-\s*
-)
-`
-	reMetaInfoItem = strings.ReplaceAll(reMetaInfoItem, "\n", "")
-	reMetaInfoBlock := `\bgitea-theme-meta-info\s*\{(` + reMetaInfoItem + `+)\}`
-	re := regexp.MustCompile(reMetaInfoBlock)
-	matchedMetaInfoBlock := re.FindAllStringSubmatch(metaInfoContent, -1)
-	if len(matchedMetaInfoBlock) == 0 {
-		return nil
-	}
-	re = regexp.MustCompile(strings.ReplaceAll(reMetaInfoItem, "\n", ""))
-	matchedItems := re.FindAllStringSubmatch(matchedMetaInfoBlock[0][1], -1)
 	m := map[string]string{}
-	for _, item := range matchedItems {
-		v := item[3]
-		v = strings.TrimPrefix(v, "\"")
-		v = strings.TrimSuffix(v, "\"")
-		v = strings.ReplaceAll(v, `\"`, `"`)
-		m[item[2]] = v
+
+	for _, v := range []string{"--theme-display-name", "--is-dark-theme"} {
+		re := regexp.MustCompile(v + `\s?:\s?["']?([^"';]+)["';]`)
+		matches := re.FindAllStringSubmatch(cssContent, -1)
+		numMatches := len(matches)
+		if numMatches > 0 {
+			m[v] = matches[numMatches - 1][1]
+		}
 	}
 	return m
 }
@@ -94,6 +69,7 @@ func parseThemeMetaInfo(fileName, cssContent string) *ThemeMetaInfo {
 		return themeInfo
 	}
 	themeInfo.DisplayName = m["--theme-display-name"]
+	themeInfo.IsDarkTheme = strings.EqualFold(m["--is-dark-theme"], "true")
 	return themeInfo
 }
 

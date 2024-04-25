@@ -1,12 +1,9 @@
 @import "./theme-gitea-dark.css";
 
-gitea-theme-meta-info {
-  --theme-display-name: "Dark (Red/Green Colorblind-Friendly)";
-}
-
 /* red/green colorblind-friendly colors */
 /* from GitHub: --diffBlob-addition-*, --diffBlob-deletion-*, etc */
 :root {
+  --theme-display-name: "Dark (Red/Green Colorblind-Friendly)";
   --color-diff-added-word-bg: #388bfd66;
   --color-diff-added-row-bg: #388bfd26;
 

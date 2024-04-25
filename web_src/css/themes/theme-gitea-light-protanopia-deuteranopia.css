@@ -1,12 +1,9 @@
 @import "./theme-gitea-light.css";
 
-gitea-theme-meta-info {
-  --theme-display-name: "Light (Red/Green Colorblind-Friendly)";
-}
-
 /* red/green colorblind-friendly colors */
 /* from GitHub: --diffBlob-addition-*, --diffBlob-deletion-*, etc */
 :root {
+  --theme-display-name: "Light (Red/Green Colorblind-Friendly)";
   --color-diff-added-word-bg: #54aeff66;
   --color-diff-added-row-bg: #ddf4ff80;
 
