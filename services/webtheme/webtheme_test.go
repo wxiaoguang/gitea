@@ -20,7 +20,7 @@ func TestParseThemeMetaInfoToMap(t *testing.T) {
 		}
 	`), map[string]string{
 		"--theme-display-name": "Dark (Red/Green Colorblind-Friendly)",
-		"--is-dark-theme": "true",
+		"--is-dark-theme":      "true",
 	})
 
 	assert.Equal(t, parseThemeMetaInfoToMap(`
@@ -37,6 +37,6 @@ func TestParseThemeMetaInfoToMap(t *testing.T) {
 		}
 	`), map[string]string{
 		"--theme-display-name": "Light",
-		"--is-dark-theme": "false",
+		"--is-dark-theme":      "false",
 	})
 }

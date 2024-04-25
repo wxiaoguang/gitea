@@ -28,10 +28,10 @@ const (
 )
 
 type ThemeMetaInfo struct {
-	FileName           string
-	InternalName       string
-	DisplayName        string
-	IsDarkTheme        bool
+	FileName     string
+	InternalName string
+	DisplayName  string
+	IsDarkTheme  bool
 }
 
 // extract CSS vars from CSS, taking the last occurence in a file to support combined themes like "auto"
@@ -43,7 +43,7 @@ func parseThemeMetaInfoToMap(cssContent string) map[string]string {
 		matches := re.FindAllStringSubmatch(cssContent, -1)
 		numMatches := len(matches)
 		if numMatches > 0 {
-			m[v] = matches[numMatches - 1][1]
+			m[v] = matches[numMatches-1][1]
 		}
 	}
 	return m
