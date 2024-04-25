@@ -34,7 +34,7 @@ type ThemeMetaInfo struct {
 	IsDarkTheme  bool
 }
 
-// extract CSS vars from CSS, taking the last occurence in a file to support combined themes like "auto"
+// extract CSS vars from CSS, taking the last occurrence in a file to support combined themes like "auto"
 func parseThemeMetaInfoToMap(cssContent string) map[string]string {
 	m := map[string]string{}
 
