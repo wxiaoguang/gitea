@@ -4,6 +4,8 @@
 package oauth2
 
 import (
+	"context"
+
 	"code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/modules/json"
 )
@@ -48,4 +50,17 @@ func (source *Source) SetAuthSource(authSource *auth.Source) {
 
 func init() {
 	auth.RegisterTypeConfig(auth.OAuth2, &Source{})
+}
+
+func AddOAuth2SourceForTesting(ctx context.Context, authName string, cfg Source) error {
+	err := auth.CreateSource(ctx, &auth.Source{
+		Type:     auth.OAuth2,
+		Name:     authName,
+		IsActive: true,
+		Cfg:      &cfg,
+	})
+	if err != nil {
+		return err
+	}
+	return ResetOAuth2(ctx)
 }

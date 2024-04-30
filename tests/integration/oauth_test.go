@@ -5,13 +5,21 @@ package integration
 
 import (
 	"bytes"
+	auth2 "code.gitea.io/gitea/models/auth"
+	"code.gitea.io/gitea/modules/git/url"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strings"
 	"testing"
 
+	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/modules/json"
 	"code.gitea.io/gitea/modules/setting"
+	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/routers/web/auth"
+	"code.gitea.io/gitea/services/auth/source/oauth2"
 	"code.gitea.io/gitea/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -418,4 +426,56 @@ func TestRefreshTokenInvalidation(t *testing.T) {
 	assert.NoError(t, json.Unmarshal(resp.Body.Bytes(), parsedError))
 	assert.Equal(t, "unauthorized_client", string(parsedError.ErrorCode))
 	assert.Equal(t, "token was already used", parsedError.ErrorDescription)
+}
+
+func TestSignInOAuthCallbackPKCE(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	mockServer := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "application/json")
+			switch {
+			case strings.HasSuffix(r.URL.Path, "/token"):
+				// mock a PKCE provider, use S256 challenge
+				ac := auth2.OAuth2AuthorizationCode{
+					CodeChallengeMethod: "S256",
+					CodeChallenge:       r.PostFormValue("code_challenge"),
+				}
+				if !ac.ValidateCodeChallenge(r.PostFormValue("code_verifier")) {
+					http.Error(w, "invalid code verifier", http.StatusBadRequest)
+					return
+				}
+				_, _ = fmt.Fprint(w, `{"access_token":"dummy-access-token","token_type":"bearer","expires_in":3600,"refresh_token":"dummy"}`)
+			case strings.HasSuffix(r.URL.Path, "/profile"):
+				_, _ = fmt.Fprint(w, `{"id":123,"sub":"dummy-user","email":"dummy-name@example.com"}`)
+			default:
+				http.NotFound(w, r)
+			}
+		}),
+	}
+	defer mockServer.Close()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	go mockServer.Serve(ln)
+
+	assert.NoError(t, oauth2.AddOAuth2SourceForTesting(db.DefaultContext, "dummy-auth-source", oauth2.Source{
+		Provider: "gitea",
+		CustomURLMapping: &oauth2.CustomURLMapping{
+			AuthURL:    "http://" + ln.Addr().String() + "/auth",
+			TokenURL:   "http://" + ln.Addr().String() + "/token",
+			ProfileURL: "http://" + ln.Addr().String() + "/profile",
+		},
+	}))
+
+	session := emptyTestSession(t)
+	req := NewRequest(t, "GET", "/user/oauth2/dummy-auth-source")
+	resp := session.MakeRequest(t, req, http.StatusTemporaryRedirect)
+	redirectURL, err := url.Parse(test.RedirectURL(resp))
+	assert.NoError(t, err)
+	assert.Contains(t, redirectURL.RawQuery, "code_challenge_method=S256")
+	assert.Contains(t, redirectURL.RawQuery, "code_challenge=")
+
+	req = NewRequest(t, "GET", "/user/oauth2/dummy-auth-source/callback?code=dummy-code&state="+redirectURL.Query().Get("state"))
+	resp = session.MakeRequest(t, req, http.StatusSeeOther)
+	assert.Equal(t, "/user/link_account", test.RedirectURL(resp))
 }

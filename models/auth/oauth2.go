@@ -411,14 +411,17 @@ func (code *OAuth2AuthorizationCode) Invalidate(ctx context.Context) error {
 	return err
 }
 
+func CalculateCodeChallengeS256(verifier string) string {
+	// base64url(SHA256(verifier)) see https://tools.ietf.org/html/rfc7636#section-4.6
+	h := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(h[:])
+}
+
 // ValidateCodeChallenge validates the given verifier against the saved code challenge. This is part of the PKCE implementation.
 func (code *OAuth2AuthorizationCode) ValidateCodeChallenge(verifier string) bool {
 	switch code.CodeChallengeMethod {
 	case "S256":
-		// base64url(SHA256(verifier)) see https://tools.ietf.org/html/rfc7636#section-4.6
-		h := sha256.Sum256([]byte(verifier))
-		hashedVerifier := base64.RawURLEncoding.EncodeToString(h[:])
-		return hashedVerifier == code.CodeChallenge
+		return CalculateCodeChallengeS256(verifier) == code.CodeChallenge
 	case "plain":
 		return verifier == code.CodeChallenge
 	case "":

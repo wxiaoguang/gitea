@@ -837,6 +837,18 @@ func handleAuthorizeError(ctx *context.Context, authErr AuthorizeError, redirect
 	ctx.Redirect(redirect.String(), http.StatusSeeOther)
 }
 
+// generateCodeChallenge stores a code verifier in the session and returns a S256 code challenge for PKCE
+func generateCodeChallenge(ctx *context.Context) (codeChallenge string, err error) {
+	codeVerifier, err := util.CryptoRandomString(43) // 256/log2(62) = 256 bits of entropy (each char having log2(62) of randomness)
+	if err != nil {
+		return "", err
+	}
+	if err = ctx.Session.Set("CodeVerifier", codeVerifier); err != nil {
+		return "", err
+	}
+	return encodeCodeChallenge(codeVerifier)
+}
+
 // SignInOAuth handles the OAuth2 login buttons
 func SignInOAuth(ctx *context.Context) {
 	provider := ctx.Params(":provider")
@@ -860,13 +872,19 @@ func SignInOAuth(ctx *context.Context) {
 		return
 	}
 
-	if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp); err != nil {
+	codeChallenge, err := generateCodeChallenge(ctx)
+	if err != nil {
+		ctx.ServerError("SignIn", fmt.Errorf("could not generate code_challenge: %w", err))
+		return
+	}
+
+	if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp, codeChallenge); err != nil {
 		if strings.Contains(err.Error(), "no provider for ") {
 			if err = oauth2.ResetOAuth2(ctx); err != nil {
 				ctx.ServerError("SignIn", err)
 				return
 			}
-			if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp); err != nil {
+			if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp, codeChallenge); err != nil {
 				ctx.ServerError("SignIn", err)
 			}
 			return
@@ -1233,7 +1251,9 @@ func oAuth2UserLoginCallback(ctx *context.Context, authSource *auth.Source, requ
 	}
 
 	// Proceed to authenticate through goth.
-	gothUser, err := oauth2Source.Callback(request, response)
+	codeVerifier, _ := ctx.Session.Get("CodeVerifier").(string)
+	_ = ctx.Session.Delete("CodeVerifier")
+	gothUser, err := oauth2Source.Callback(request, response, codeVerifier)
 	if err != nil {
 		if err.Error() == "securecookie: the value is too long" || strings.Contains(err.Error(), "Data too long") {
 			log.Error("OAuth2 Provider %s returned too long a token. Current max: %d. Either increase the [OAuth2] MAX_TOKEN_LENGTH or reduce the information returned from the OAuth2 provider", authSource.Name, setting.OAuth2.MaxTokenLength)

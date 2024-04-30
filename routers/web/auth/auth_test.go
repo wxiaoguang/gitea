@@ -8,12 +8,10 @@ import (
 	"net/url"
 	"testing"
 
-	auth_model "code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/modules/session"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/test"
-	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/services/auth/source/oauth2"
 	"code.gitea.io/gitea/services/contexttest"
 
@@ -21,17 +19,6 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/stretchr/testify/assert"
 )
-
-func addOAuth2Source(t *testing.T, authName string, cfg oauth2.Source) {
-	cfg.Provider = util.IfZero(cfg.Provider, "gitea")
-	err := auth_model.CreateSource(db.DefaultContext, &auth_model.Source{
-		Type:     auth_model.OAuth2,
-		Name:     authName,
-		IsActive: true,
-		Cfg:      &cfg,
-	})
-	assert.NoError(t, err)
-}
 
 func TestUserLogin(t *testing.T) {
 	ctx, resp := contexttest.MockContext(t, "/user/login")
@@ -67,7 +54,9 @@ func TestSignUpOAuth2ButMissingFields(t *testing.T) {
 		return goth.User{Provider: "dummy-auth-source", UserID: "dummy-user"}, nil
 	})()
 
-	addOAuth2Source(t, "dummy-auth-source", oauth2.Source{})
+	assert.NoError(t, oauth2.AddOAuth2SourceForTesting(db.DefaultContext, "dummy-auth-source", oauth2.Source{
+		Provider: "gitea",
+	}))
 
 	mockOpt := contexttest.MockContextOption{SessionStore: session.NewMockStore("dummy-sid")}
 	ctx, resp := contexttest.MockContext(t, "/user/oauth2/dummy-auth-source/callback?code=dummy-code", mockOpt)

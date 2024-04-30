@@ -22,9 +22,6 @@ import (
 
 var gothRWMutex = sync.RWMutex{}
 
-// UsersStoreKey is the key for the store
-const UsersStoreKey = "gitea-oauth2-sessions"
-
 // ProviderHeaderKey is the HTTP header key
 const ProviderHeaderKey = "gitea-oauth2-provider"
 
