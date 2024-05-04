@@ -1,22 +1,17 @@
+import {queryElemChildren} from '../utils/dom.js';
+
 export function initRepositorySearch() {
   const repositorySearchForm = document.querySelector('#repo-search-form');
   if (!repositorySearchForm) return;
 
   repositorySearchForm.addEventListener('change', (e) => {
-    e.preventDefault();
-
-    const formData = new FormData(repositorySearchForm);
-    const params = new URLSearchParams(formData);
-
-    if (e.target.name === 'clear-filter') {
-      params.delete('archived');
-      params.delete('fork');
-      params.delete('mirror');
-      params.delete('template');
-      params.delete('private');
+    if (e.target.matches('input[type="radio"]')) {
+      repositorySearchForm.submit();
     }
-
-    params.delete('clear-filter');
-    window.location.search = params.toString();
+  });
+  const filterDropdown = repositorySearchForm.querySelector('.ui.dropdown.repo-state-filter');
+  filterDropdown.querySelector('.menu > .item.clear-repo-state-filter').addEventListener('click', () => {
+    queryElemChildren(filterDropdown, '.menu > .item input[type="radio"]', (el) => el.checked = false);
+    repositorySearchForm.submit();
   });
 }

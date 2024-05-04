@@ -9,11 +9,11 @@
 			{{template "shared/search/button"}}
 		</div>
 		<!-- Filter -->
-		<div class="item ui small dropdown jump">
+		<div class="item ui small dropdown jump repo-state-filter">
 			<span class="text">{{ctx.Locale.Tr "filter"}}</span>
 			{{svg "octicon-triangle-down" 14 "dropdown icon"}}
 			<div class="menu flex-items-menu">
-				<label class="item"><input type="radio" name="clear-filter"> {{ctx.Locale.Tr "filter.clear"}}</label>
+				<a class="item clear-repo-state-filter">{{ctx.Locale.Tr "filter.clear"}}</a>
 				<div class="divider"></div>
 				<label class="item"><input type="radio" name="archived" {{if .IsArchived.Value}}checked{{end}} value="1"> {{ctx.Locale.Tr "filter.is_archived"}}</label>
 				<label class="item"><input type="radio" name="archived" {{if (not (.IsArchived.ValueOrDefault true))}}checked{{end}} value="0"> {{ctx.Locale.Tr "filter.not_archived"}}</label>

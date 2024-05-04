@@ -50,3 +50,14 @@ func (p *Pagination) SetDefaultParams(ctx *Context) {
 	}
 	// do not add any more uncommon params here!
 }
+
+func (p *Pagination) ApplyQueryParams(ctx *Context) {
+	for k, v := range ctx.Req.URL.Query() {
+		if k == "page" {
+			continue
+		}
+		for _, vv := range v {
+			p.AddParamString(k, vv)
+		}
+	}
+}

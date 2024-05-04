@@ -4,7 +4,6 @@
 package explore
 
 import (
-	"fmt"
 	"net/http"
 
 	"code.gitea.io/gitea/models/db"
@@ -168,10 +167,7 @@ func RenderRepoSearch(ctx *context.Context, opts *RepoSearchOptions) {
 	ctx.Data["IsRepoIndexerEnabled"] = setting.Indexer.RepoIndexerEnabled
 
 	pager := context.NewPagination(int(count), opts.PageSize, page, 5)
-	pager.SetDefaultParams(ctx)
-	pager.AddParamString("topic", fmt.Sprint(topicOnly))
-	pager.AddParamString("language", language)
-	pager.AddParamString(relevantReposOnlyParam, fmt.Sprint(opts.OnlyShowRelevant))
+	pager.ApplyQueryParams(ctx)
 	ctx.Data["Page"] = pager
 
 	ctx.HTML(http.StatusOK, opts.TplName)
