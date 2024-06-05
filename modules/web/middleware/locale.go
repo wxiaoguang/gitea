@@ -14,14 +14,13 @@ import (
 
 // Locale handle locale
 func Locale(resp http.ResponseWriter, req *http.Request) translation.Locale {
-	// 1. Check URL arguments.
+	// 1. Check URL query parameters.
 	lang := req.URL.Query().Get("lang")
 	changeLang := lang != ""
 
 	// 2. Get language information from cookies.
-	if len(lang) == 0 {
-		ck, _ := req.Cookie("lang")
-		if ck != nil {
+	if lang == "" {
+		if ck, _ := req.Cookie("lang"); ck != nil {
 			lang = ck.Value
 		}
 	}
@@ -34,7 +33,7 @@ func Locale(resp http.ResponseWriter, req *http.Request) translation.Locale {
 
 	// 3. Get language information from 'Accept-Language'.
 	// The first element in the list is chosen to be the default language automatically.
-	if len(lang) == 0 {
+	if lang == "" {
 		tags, _, _ := language.ParseAcceptLanguage(req.Header.Get("Accept-Language"))
 		tag := translation.Match(tags...)
 		lang = tag.String()
