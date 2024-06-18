@@ -88,17 +88,13 @@ func GetIssueStats(ctx context.Context, opts *IssuesOptions) (*IssueStats, error
 		return getIssueStatsChunk(ctx, opts, opts.IssueIDs)
 	}
 
-	// If too long a list of IDs is provided, we get the statistics in
-	// smaller chunks and get accumulates. Note: this could potentially
-	// get us invalid results. The alternative is to insert the list of
-	// ids in a temporary table and join from them.
+	// If too long a list of IDs is provided, we get the statistics in smaller chunks and get accumulates.
+	// FIXME: this could potentially result in wrong numbers.
+	// One possible alternative is to insert the list of ids in a temporary table and join from them.
 	accum := &IssueStats{}
-	for i := 0; i < len(opts.IssueIDs); {
-		chunk := i + MaxQueryParameters
-		if chunk > len(opts.IssueIDs) {
-			chunk = len(opts.IssueIDs)
-		}
-		stats, err := getIssueStatsChunk(ctx, opts, opts.IssueIDs[i:chunk])
+	for i := 0; i < len(opts.IssueIDs); i += MaxQueryParameters {
+		end := min(i+MaxQueryParameters, len(opts.IssueIDs))
+		stats, err := getIssueStatsChunk(ctx, opts, opts.IssueIDs[i:end])
 		if err != nil {
 			return nil, err
 		}
@@ -107,10 +103,9 @@ func GetIssueStats(ctx context.Context, opts *IssuesOptions) (*IssueStats, error
 		accum.YourRepositoriesCount += stats.YourRepositoriesCount
 		accum.AssignCount += stats.AssignCount
 		accum.CreateCount += stats.CreateCount
-		accum.OpenCount += stats.MentionCount
+		accum.MentionCount += stats.MentionCount
 		accum.ReviewRequestedCount += stats.ReviewRequestedCount
 		accum.ReviewedCount += stats.ReviewedCount
-		i = chunk
 	}
 	return accum, nil
 }
