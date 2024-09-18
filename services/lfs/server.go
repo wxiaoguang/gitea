@@ -603,6 +603,9 @@ func parseToken(ctx stdCtx.Context, authorization string, target *repo_model.Rep
 }
 
 func requireAuth(ctx *context.Context) {
+	// https://datatracker.ietf.org/doc/html/rfc2617
+	// realm       = "realm" "=" realm-value
+	// realm-value = quoted-string
 	ctx.Resp.Header().Set("WWW-Authenticate", "Basic realm=gitea-lfs")
 	writeStatus(ctx, http.StatusUnauthorized)
 }
