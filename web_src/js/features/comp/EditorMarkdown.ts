@@ -4,6 +4,16 @@ export function triggerEditorContentChanged(target) {
   target.dispatchEvent(new CustomEvent(EventEditorContentChanged, {bubbles: true}));
 }
 
+export function textareaInsertText(textarea, value) {
+  const startPos = textarea.selectionStart;
+  const endPos = textarea.selectionEnd;
+  textarea.value = textarea.value.substring(0, startPos) + value + textarea.value.substring(endPos);
+  textarea.selectionStart = startPos;
+  textarea.selectionEnd = startPos + value.length;
+  textarea.focus();
+  triggerEditorContentChanged(textarea);
+}
+
 function handleIndentSelection(textarea, e) {
   const selStart = textarea.selectionStart;
   const selEnd = textarea.selectionEnd;
