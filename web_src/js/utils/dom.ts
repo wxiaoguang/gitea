@@ -328,3 +328,17 @@ export function animateOnce(el: Element, animationClassName: string): Promise<vo
     el.classList.add(animationClassName);
   });
 }
+
+export function extractSelectedHtml(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    if (container !== range.commonAncestorContainer && container.contains(range.commonAncestorContainer)) {
+      const contents = selection.getRangeAt(0).cloneContents();
+      const el = document.createElement('div');
+      el.append(contents);
+      return el.innerHTML;
+    }
+  }
+  return '';
+}

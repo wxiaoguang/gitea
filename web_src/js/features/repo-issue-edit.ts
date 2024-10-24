@@ -1,17 +1,20 @@
-import $ from 'jquery';
 import {handleReply} from './repo-issue.ts';
 import {getComboMarkdownEditor, initComboMarkdownEditor, ComboMarkdownEditor} from './comp/ComboMarkdownEditor.ts';
 import {POST} from '../modules/fetch.ts';
 import {showErrorToast} from '../modules/toast.ts';
-import {hideElem, showElem} from '../utils/dom.ts';
+import {extractSelectedHtml, hideElem, showElem} from '../utils/dom.ts';
 import {attachRefIssueContextPopup} from './contextpopup.ts';
 import {initCommentContent, initMarkupContent} from '../markup/content.ts';
 import {triggerUploadStateChanged} from './comp/EditorUpload.ts';
+import * as TurndownService from '@joplin/turndown';
+import * as turndownPluginGfm from '@joplin/turndown-plugin-gfm';
 
-async function onEditContent(event) {
-  event.preventDefault();
+async function tryOnEditContent(e) {
+  const clickTarget = e.target.closest('.edit-content');
+  if (!clickTarget) return;
 
-  const segment = this.closest('.header').nextElementSibling;
+  e.preventDefault();
+  const segment = clickTarget.closest('.header').nextElementSibling;
   const editContentZone = segment.querySelector('.edit-content-zone');
   const renderContent = segment.querySelector('.render-content');
   const rawContent = segment.querySelector('.raw-content');
@@ -100,33 +103,45 @@ async function onEditContent(event) {
   triggerUploadStateChanged(comboMarkdownEditor.container);
 }
 
+async function tryOnQuoteReply(e) {
+  const clickTarget = (e.target as HTMLElement).closest('.quote-reply');
+  if (!clickTarget) return;
+
+  e.preventDefault();
+  const contentToQuoteId = clickTarget.getAttribute('data-target');
+  const targetRawToQuote = document.querySelector<HTMLElement>(`#${contentToQuoteId}.raw-content`);
+  const targetMarkupToQuote = targetRawToQuote.parentElement.querySelector<HTMLElement>('.render-content.markup');
+  let contentToQuote = extractSelectedHtml(targetMarkupToQuote);
+  if (contentToQuote) {
+    const turndownService = new TurndownService();
+    turndownService.use(turndownPluginGfm.gfm);
+    contentToQuote = turndownService.turndown(contentToQuote);
+  } else {
+    contentToQuote = targetRawToQuote.textContent;
+  }
+  const quotedContent = `${contentToQuote.replace(/^/mg, '> ')}\n`;
+
+  let editor;
+  if (clickTarget.classList.contains('quote-reply-diff')) {
+    const replyBtn = clickTarget.closest('.comment-code-cloud').querySelector('button.comment-form-reply');
+    editor = await handleReply(replyBtn);
+  } else {
+    // for normal issue/comment page
+    editor = getComboMarkdownEditor(document.querySelector('#comment-form .combo-markdown-editor'));
+  }
+
+  if (editor.value()) {
+    editor.value(`${editor.value()}\n\n${quotedContent}`);
+  } else {
+    editor.value(quotedContent);
+  }
+  editor.focus();
+  editor.moveCursorToEnd();
+}
+
 export function initRepoIssueCommentEdit() {
-  // Edit issue or comment content
-  $(document).on('click', '.edit-content', onEditContent);
-
-  // Quote reply
-  $(document).on('click', '.quote-reply', async function (event) {
-    event.preventDefault();
-    const target = this.getAttribute('data-target');
-    const quote = document.querySelector(`#${target}`).textContent.replace(/\n/g, '\n> ');
-    const content = `> ${quote}\n\n`;
-
-    let editor;
-    if (this.classList.contains('quote-reply-diff')) {
-      const replyBtn = this.closest('.comment-code-cloud').querySelector('button.comment-form-reply');
-      editor = await handleReply(replyBtn);
-    } else {
-      // for normal issue/comment page
-      editor = getComboMarkdownEditor($('#comment-form .combo-markdown-editor'));
-    }
-    if (editor) {
-      if (editor.value()) {
-        editor.value(`${editor.value()}\n\n${content}`);
-      } else {
-        editor.value(content);
-      }
-      editor.focus();
-      editor.moveCursorToEnd();
-    }
+  document.addEventListener('click', (e) => {
+    tryOnEditContent(e); // Edit issue or comment content
+    tryOnQuoteReply(e); // Quote reply to the comment editor
   });
 }
