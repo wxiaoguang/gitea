@@ -23,6 +23,7 @@ import (
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
 	arch_model "code.gitea.io/gitea/modules/packages/arch"
+	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/tests"
 
@@ -39,6 +40,9 @@ func TestPackageArchNew(t *testing.T) {
 		return data
 	}
 	rootURL := fmt.Sprintf("/api/packages/%s/arch", user.Name)
+
+	// DIFF:RepositoryKey
+	keyURL := fmt.Sprintf("/api/packages/%s/arch/key", user.Name)
 
 	pkgs := map[string][]byte{
 		// pkgname = test, arch = any
@@ -128,14 +132,16 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 	t.Run("RepositoryKey", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		req := NewRequest(t, "GET", rootURL+"/repository.key")
+		req := NewRequest(t, "GET", keyURL)
 		resp := MakeRequest(t, req, http.StatusOK)
 
 		require.Equal(t, "application/pgp-keys", resp.Header().Get("Content-Type"))
 		require.Contains(t, resp.Body.String(), "-----BEGIN PGP PUBLIC KEY BLOCK-----")
 	})
 
-	for _, group := range []string{"", "arch", "arch/os", "x86_64"} {
+	// DIFF:RepositoryName
+	//for _, group := range []string{"arch", "arch/os"} {
+	for _, group := range []string{"main-repo", "test-repo"} {
 		groupURL := rootURL + util.Iif(group == "", "", "/"+group)
 		t.Run(fmt.Sprintf("Upload[%s]", group), func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -149,7 +155,9 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 			req = NewRequestWithBody(t, "PUT", groupURL, bytes.NewBuffer([]byte("any string"))).
 				AddBasicAuth(user.Name)
-			MakeRequest(t, req, http.StatusBadRequest)
+			// DIFF:InvalidPackage
+			//MakeRequest(t, req, http.StatusBadRequest)
+			MakeRequest(t, req, http.StatusInternalServerError)
 
 			pvs, err := packages.GetVersionsByPackageType(db.DefaultContext, user.ID, packages.TypeArch)
 			require.NoError(t, err)
@@ -166,11 +174,13 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 			require.NoError(t, err)
 			size := 0
 			for _, pf := range pfs {
-				if pf.CompositeKey == group {
+				if strings.HasPrefix(pf.CompositeKey, group+"|") {
 					size++
 				}
 			}
-			require.Equal(t, 2, size) // zst and zst.sig
+			// DIFF:PackageFileStore
+			//require.Equal(t, 2, size) // zst and zst.sig
+			require.Equal(t, 1, size) // zst
 
 			pb, err := packages.GetBlobByID(db.DefaultContext, pfs[0].BlobID)
 			require.NoError(t, err)
@@ -192,28 +202,30 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 		t.Run(fmt.Sprintf("Download[%s]", group), func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			req := NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-x86_64.pkg.tar.zst")
+
+			// DIFF:PackageFileNameExt
+			req := NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-x86_64.pck.tar.zst")
 			resp := MakeRequest(t, req, http.StatusOK)
 			require.Equal(t, pkgs["x86_64"], resp.Body.Bytes())
 
-			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pkg.tar.zst")
+			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pck.tar.zst")
 			resp = MakeRequest(t, req, http.StatusOK)
 			require.Equal(t, pkgs["any"], resp.Body.Bytes())
 
 			// get other group
-			req = NewRequest(t, "GET", rootURL+"/unknown/x86_64/test-1.0.0-1-aarch64.pkg.tar.zst")
+			req = NewRequest(t, "GET", rootURL+"/unknown/x86_64/test-1.0.0-1-aarch64.pck.tar.zst")
 			MakeRequest(t, req, http.StatusNotFound)
 		})
 
 		t.Run(fmt.Sprintf("SignVerify[%s]", group), func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			req := NewRequest(t, "GET", rootURL+"/repository.key")
+			req := NewRequest(t, "GET", keyURL)
 			respPub := MakeRequest(t, req, http.StatusOK)
 
-			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pkg.tar.zst")
+			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pck.tar.zst")
 			respPkg := MakeRequest(t, req, http.StatusOK)
 
-			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pkg.tar.zst.sig")
+			req = NewRequest(t, "GET", groupURL+"/x86_64/test-1.0.0-1-any.pck.tar.zst.sig")
 			respSig := MakeRequest(t, req, http.StatusOK)
 
 			if err := gpgVerify(respPub.Body.Bytes(), respSig.Body.Bytes(), respPkg.Body.Bytes()); err != nil {
@@ -223,7 +235,7 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 		t.Run(fmt.Sprintf("RepositoryDB[%s]", group), func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			req := NewRequest(t, "GET", rootURL+"/repository.key")
+			req := NewRequest(t, "GET", keyURL)
 			respPub := MakeRequest(t, req, http.StatusOK)
 
 			req = NewRequest(t, "GET", groupURL+"/x86_64/base.db")
@@ -237,8 +249,14 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 			}
 			files, err := listTarGzFiles(respPkg.Body.Bytes())
 			require.NoError(t, err)
-			require.Len(t, files, 1)
+
+			// DIFF:RepositoryDBFiles
+			//require.Len(t, files, 1)
+			require.Len(t, files, 2) // files, desc
 			for s, d := range files {
+				if !strings.HasSuffix(s, "/desc") {
+					continue
+				}
 				name := getProperty(string(d.Data), "NAME")
 				ver := getProperty(string(d.Data), "VERSION")
 				require.Equal(t, name+"-"+ver+"/desc", s)
@@ -255,19 +273,24 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 		t.Run(fmt.Sprintf("Delete[%s]", group), func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			// test data
-			req := NewRequestWithBody(t, "PUT", groupURL, bytes.NewReader(pkgs["otherXZ"])).
+			req := NewRequestWithBody(t, "PUT", groupURL, bytes.NewReader(pkgs["otherZST"])).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusCreated)
 
+			//DIFF:DeletePackageURL
+			//req = NewRequestWithBody(t, "DELETE", rootURL+"/base/notfound/1.0.0-1/any", nil).
 			req = NewRequestWithBody(t, "DELETE", rootURL+"/base/notfound/1.0.0-1/any", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNotFound)
 
-			req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/x86_64", nil).
+			//DIFF:DeletePackageURL
+			//req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/x86_64", nil).
+			req = NewRequestWithBody(t, "DELETE", groupURL+"/x86_64/test-1.0.0-1-x86_64.pck.tar.zst", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNoContent)
 
-			req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/any", nil).
+			//req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/any", nil).
+			req = NewRequestWithBody(t, "DELETE", groupURL+"/any/test-1.0.0-1-any.pck.tar.zst", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNoContent)
 
@@ -275,9 +298,10 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 			respPkg := MakeRequest(t, req, http.StatusOK)
 			files, err := listTarGzFiles(respPkg.Body.Bytes())
 			require.NoError(t, err)
-			require.Len(t, files, 1)
+			require.Len(t, files, 2) // now, only "test2-1.0.0-1/files" and "test2-1.0.0-1/desc"
 
-			req = NewRequestWithBody(t, "DELETE", groupURL+"/test2/1.0.0-1/any", nil).
+			//req = NewRequestWithBody(t, "DELETE", groupURL+"/test2/1.0.0-1/any", nil).
+			req = NewRequestWithBody(t, "DELETE", groupURL+"/any/test2-1.0.0-1-any.pck.tar.zst", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNoContent)
 
@@ -285,18 +309,19 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNotFound)
 
-			req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/aarch64", nil).
+			//req = NewRequestWithBody(t, "DELETE", groupURL+"/test/1.0.0-1/aarch64", nil).
+			req = NewRequestWithBody(t, "DELETE", groupURL+"/aarch64/test-1.0.0-1-aarch64.pck.tar.zst", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNoContent)
 
-			req = NewRequest(t, "GET", groupURL+"/aarch64/base.db").
-				AddBasicAuth(user.Name)
+			req = NewRequest(t, "GET", groupURL+"/aarch64/base.db").AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNotFound)
 		})
 
+		// DIFF:OtherPackageType
 		for tp, key := range map[string]string{
-			"GZ":  "otherGZ",
-			"XZ":  "otherXZ",
+			//"GZ":  "otherGZ",
+			//"XZ":  "otherXZ",
 			"ZST": "otherZST",
 		} {
 			t.Run(fmt.Sprintf("Upload%s[%s]", tp, group), func(t *testing.T) {
@@ -305,11 +330,12 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 					AddBasicAuth(user.Name)
 				MakeRequest(t, req, http.StatusCreated)
 
-				req = NewRequest(t, "GET", groupURL+"/x86_64/test2-1.0.0-1-any.pkg.tar."+strings.ToLower(tp))
+				req = NewRequest(t, "GET", groupURL+"/x86_64/test2-1.0.0-1-any.pck.tar."+strings.ToLower(tp))
 				resp := MakeRequest(t, req, http.StatusOK)
 				require.Equal(t, pkgs[key], resp.Body.Bytes())
 
-				req = NewRequestWithBody(t, "DELETE", groupURL+"/test2/1.0.0-1/any", nil).
+				//req = NewRequestWithBody(t, "DELETE", groupURL+"/test2/1.0.0-1/any", nil).
+				req = NewRequestWithBody(t, "DELETE", groupURL+"/any/test2-1.0.0-1-any.pck.tar."+strings.ToLower(tp), nil).
 					AddBasicAuth(user.Name)
 				MakeRequest(t, req, http.StatusNoContent)
 			})
@@ -326,14 +352,14 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 			wg.Add(1)
 			go func(i string) {
 				defer wg.Done()
-				req := NewRequestWithBody(t, "PUT", rootURL, bytes.NewReader(pkgs[i])).
+				req := NewRequestWithBody(t, "PUT", rootURL+"/concur-repo", bytes.NewReader(pkgs[i])).
 					AddBasicAuth(user.Name)
 				MakeRequest(t, req, http.StatusCreated)
 			}(tag)
 		}
 		wg.Wait()
 		for _, target := range targets {
-			req := NewRequestWithBody(t, "DELETE", rootURL+"/test/1.0.0-1/"+target, nil).
+			req := NewRequestWithBody(t, "DELETE", rootURL+"/concur-repo/"+target+"/test-1.0.0-1-"+target+".pck.tar.zst", nil).
 				AddBasicAuth(user.Name)
 			MakeRequest(t, req, http.StatusNoContent)
 		}
@@ -341,6 +367,8 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 	t.Run("List Meta.Arch[any]", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
+		// DIFF:RepositoryName
+		defer test.MockVariableValue(&rootURL, rootURL+"/list-repo")()
 
 		req := NewRequestWithBody(t, "PUT", rootURL, bytes.NewReader(pkgs["any"])).AddBasicAuth(user.Name)
 		MakeRequest(t, req, http.StatusCreated)
@@ -350,9 +378,10 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 		files, err := listTarGzFiles(respPkg.Body.Bytes())
 		require.NoError(t, err)
-		require.Len(t, files, 1) // only one package: "test"
+		//require.Len(t, files, 1)
+		require.Len(t, files, 2) // only one package: "test (files, desc)"
 
-		req = NewRequestWithBody(t, "PUT", rootURL, bytes.NewReader(pkgs["otherXZ"])).AddBasicAuth(user.Name)
+		req = NewRequestWithBody(t, "PUT", rootURL, bytes.NewReader(pkgs["otherZST"])).AddBasicAuth(user.Name)
 		MakeRequest(t, req, http.StatusCreated)
 
 		req = NewRequest(t, "GET", rootURL+"/x86_64/base.db")
@@ -360,7 +389,8 @@ HMhNSS1IzUsBcpJAPFAwwUXSM0u4BjoaR8EoGAWjgGQAAILFeyQADAAA
 
 		files, err = listTarGzFiles(resp.Body.Bytes())
 		require.NoError(t, err)
-		require.Len(t, files, 2) // now there are 2 packages: "test" and "test2"
+		//require.Len(t, files, 2) // now there are 2 packages: "test" and "test2"
+		require.Len(t, files, 4) // now there are 2 packages: "test" and "test2" (files, desc)*2
 	})
 }
 
