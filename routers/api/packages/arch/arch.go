@@ -42,7 +42,7 @@ func GetRepositoryKey(ctx *context.Context) {
 }
 
 func UploadPackageFile(ctx *context.Context) {
-	repository := strings.TrimSpace(ctx.Params("repository"))
+	repository := strings.TrimSpace(ctx.PathParam("repository"))
 	if repository == "" {
 		apiError(ctx, http.StatusBadRequest, "invalid repository")
 		return
@@ -145,9 +145,9 @@ func UploadPackageFile(ctx *context.Context) {
 }
 
 func DownloadPackageOrRepositoryFile(ctx *context.Context) {
-	repository := ctx.Params("repository")
-	architecture := ctx.Params("architecture")
-	filename := ctx.Params("filename")
+	repository := ctx.PathParam("repository")
+	architecture := ctx.PathParam("architecture")
+	filename := ctx.PathParam("filename")
 	filenameOrig := filename
 
 	isSignature := strings.HasSuffix(filename, ".sig")
@@ -231,12 +231,12 @@ func DownloadPackageOrRepositoryFile(ctx *context.Context) {
 }
 
 func DeletePackageFile(ctx *context.Context) {
-	repository, architecture := ctx.Params("repository"), ctx.Params("architecture")
+	repository, architecture := ctx.PathParam("repository"), ctx.PathParam("architecture")
 
 	pfs, _, err := packages_model.SearchFiles(ctx, &packages_model.PackageFileSearchOptions{
 		OwnerID:      ctx.Package.Owner.ID,
 		PackageType:  packages_model.TypeArch,
-		Query:        ctx.Params("filename"),
+		Query:        ctx.PathParam("filename"),
 		CompositeKey: fmt.Sprintf("%s|%s", repository, architecture),
 	})
 	if err != nil {
