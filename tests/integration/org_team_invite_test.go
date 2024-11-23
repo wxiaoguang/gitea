@@ -4,6 +4,8 @@
 package integration
 
 import (
+	"code.gitea.io/gitea/services/timelimitcode"
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -274,7 +276,7 @@ func TestOrgTeamEmailInviteRedirectsNewUserWithActivation(t *testing.T) {
 	user, err := user_model.GetUserByName(db.DefaultContext, "doesnotexist")
 	assert.NoError(t, err)
 
-	activateURL := fmt.Sprintf("/user/activate?code=%s", user.GenerateEmailActivateCode("doesnotexist@example.com"))
+	activateURL := fmt.Sprintf("/user/activate?code=%s", timelimitcode.GenerateTimeLimitCode(context.Background(), user.ID, "doesnotexist@example.com", timelimitcode.PurposeActivateAccount))
 	req = NewRequestWithValues(t, "POST", activateURL, map[string]string{
 		"password": "examplePassword!1",
 	})

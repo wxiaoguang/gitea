@@ -6,6 +6,7 @@ package mailer
 
 import (
 	"bytes"
+	"code.gitea.io/gitea/services/timelimitcode"
 	"context"
 	"fmt"
 	"html/template"
@@ -89,26 +90,26 @@ func sendUserMail(language string, u *user_model.User, tpl base.TplName, code, s
 }
 
 // SendActivateAccountMail sends an activation mail to the user (new user registration)
-func SendActivateAccountMail(locale translation.Locale, u *user_model.User) {
+func SendActivateAccountMail(ctx context.Context, locale translation.Locale, u *user_model.User) {
 	if setting.MailService == nil {
 		// No mail service configured
 		return
 	}
-	sendUserMail(locale.Language(), u, mailAuthActivate, u.GenerateEmailActivateCode(u.Email), locale.TrString("mail.activate_account"), "activate account")
+	sendUserMail(locale.Language(), u, mailAuthActivate, timelimitcode.GenerateTimeLimitCode(ctx, u.ID, u.Email, timelimitcode.PurposeActivateAccount), locale.TrString("mail.activate_account"), "activate account")
 }
 
 // SendResetPasswordMail sends a password reset mail to the user
-func SendResetPasswordMail(u *user_model.User) {
+func SendResetPasswordMail(ctx context.Context, u *user_model.User) {
 	if setting.MailService == nil {
 		// No mail service configured
 		return
 	}
 	locale := translation.NewLocale(u.Language)
-	sendUserMail(u.Language, u, mailAuthResetPassword, u.GenerateEmailActivateCode(u.Email), locale.TrString("mail.reset_password"), "recover account")
+	sendUserMail(u.Language, u, mailAuthResetPassword, timelimitcode.GenerateTimeLimitCode(ctx, u.ID, u.Email, timelimitcode.PurposeResetPassword), locale.TrString("mail.reset_password"), "recover account")
 }
 
 // SendActivateEmailMail sends confirmation email to confirm new email address
-func SendActivateEmailMail(u *user_model.User, email string) {
+func SendActivateEmailMail(ctx context.Context, u *user_model.User, email string) {
 	if setting.MailService == nil {
 		// No mail service configured
 		return
@@ -118,7 +119,7 @@ func SendActivateEmailMail(u *user_model.User, email string) {
 		"locale":          locale,
 		"DisplayName":     u.DisplayName(),
 		"ActiveCodeLives": timeutil.MinutesToFriendly(setting.Service.ActiveCodeLives, locale),
-		"Code":            u.GenerateEmailActivateCode(email),
+		"Code":            timelimitcode.GenerateTimeLimitCode(ctx, u.ID, email, timelimitcode.PurposeActivateEmail),
 		"Email":           email,
 		"Language":        locale.Language(),
 	}

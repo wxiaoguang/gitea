@@ -310,17 +310,6 @@ func (u *User) OrganisationLink() string {
 	return setting.AppSubURL + "/org/" + url.PathEscape(u.Name)
 }
 
-// GenerateEmailActivateCode generates an activate code based on user information and given e-mail.
-func (u *User) GenerateEmailActivateCode(email string) string {
-	code := base.CreateTimeLimitCode(
-		fmt.Sprintf("%d%s%s%s%s", u.ID, email, u.LowerName, u.Passwd, u.Rands),
-		setting.Service.ActiveCodeLives, time.Now(), nil)
-
-	// Add tail hex username
-	code += hex.EncodeToString([]byte(u.LowerName))
-	return code
-}
-
 // GetUserFollowers returns range of user's followers.
 func GetUserFollowers(ctx context.Context, u, viewer *User, listOptions db.ListOptions) ([]*User, int64, error) {
 	sess := db.GetEngine(ctx).
@@ -828,37 +817,6 @@ func countUsers(ctx context.Context, opts *CountUserFilter) int64 {
 	}
 
 	return count
-}
-
-// GetVerifyUser get user by verify code
-func GetVerifyUser(ctx context.Context, code string) (user *User) {
-	if len(code) <= base.TimeLimitCodeLength {
-		return nil
-	}
-
-	// use tail hex username query user
-	hexStr := code[base.TimeLimitCodeLength:]
-	if b, err := hex.DecodeString(hexStr); err == nil {
-		if user, err = GetUserByName(ctx, string(b)); user != nil {
-			return user
-		}
-		log.Error("user.getVerifyUser: %v", err)
-	}
-
-	return nil
-}
-
-// VerifyUserActiveCode verifies active code when active account
-func VerifyUserActiveCode(ctx context.Context, code string) (user *User) {
-	if user = GetVerifyUser(ctx, code); user != nil {
-		// time limit code
-		prefix := code[:base.TimeLimitCodeLength]
-		data := fmt.Sprintf("%d%s%s%s%s", user.ID, user.Email, user.LowerName, user.Passwd, user.Rands)
-		if base.VerifyTimeLimitCode(time.Now(), data, setting.Service.ActiveCodeLives, prefix) {
-			return user
-		}
-	}
-	return nil
 }
 
 // ValidateUser check if user is valid to insert / update into database

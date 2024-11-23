@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"code.gitea.io/gitea/services/timelimitcode"
 	"errors"
 	"fmt"
 	"net/http"
@@ -86,7 +87,7 @@ func ForgotPasswdPost(ctx *context.Context) {
 		return
 	}
 
-	mailer.SendResetPasswordMail(u)
+	mailer.SendResetPasswordMail(ctx, u)
 
 	if err = ctx.Cache.Put("MailResendLimit_"+u.LowerName, u.LowerName, 180); err != nil {
 		log.Error("Set cache(MailResendLimit) fail: %v", err)
@@ -113,7 +114,7 @@ func commonResetPassword(ctx *context.Context) (*user_model.User, *auth.TwoFacto
 	}
 
 	// Fail early, don't frustrate the user
-	u := user_model.VerifyUserActiveCode(ctx, code)
+	u := timelimitcode.VerifyUserTimeLimitCode(ctx, timelimitcode.PurposeResetPassword, code)
 	if u == nil {
 		ctx.Flash.Error(ctx.Tr("auth.invalid_code_forgot_password", fmt.Sprintf("%s/user/forgot_password", setting.AppSubURL)), true)
 		return nil, nil

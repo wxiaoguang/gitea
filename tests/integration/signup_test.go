@@ -4,6 +4,8 @@
 package integration
 
 import (
+	"code.gitea.io/gitea/services/timelimitcode"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -126,7 +128,7 @@ func TestSignupEmailActive(t *testing.T) {
 
 	// access "user/activate" with a valid activation code, then get the "verify password" page
 	user = unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "test-user-1"})
-	activationCode := user.GenerateEmailActivateCode(user.Email)
+	activationCode := timelimitcode.GenerateTimeLimitCode(context.Background(), user.ID, user.Email, timelimitcode.PurposeActivateAccount)
 	resp = session.MakeRequest(t, NewRequest(t, "GET", "/user/activate?code="+activationCode), http.StatusOK)
 	assert.Contains(t, resp.Body.String(), `<input id="verify-password"`)
 

@@ -5,6 +5,7 @@
 package auth
 
 import (
+	"code.gitea.io/gitea/services/timelimitcode"
 	"errors"
 	"fmt"
 	"html/template"
@@ -662,7 +663,7 @@ func sendActivateEmail(ctx *context.Context, u *user_model.User) {
 		return
 	}
 
-	mailer.SendActivateAccountMail(ctx.Locale, u)
+	mailer.SendActivateAccountMail(ctx, ctx.Locale, u)
 
 	activeCodeLives := timeutil.MinutesToFriendly(setting.Service.ActiveCodeLives, ctx.Locale)
 	msgHTML := ctx.Locale.Tr("auth.confirmation_mail_sent_prompt_ex", u.Email, activeCodeLives)
@@ -703,7 +704,7 @@ func Activate(ctx *context.Context) {
 	}
 
 	// TODO: ctx.Doer/ctx.Data["SignedUser"] could be nil or not the same user as the one being activated
-	user := user_model.VerifyUserActiveCode(ctx, code)
+	user := timelimitcode.VerifyUserTimeLimitCode(ctx, timelimitcode.PurposeActivateAccount, code)
 	if user == nil { // if code is wrong
 		renderActivationPromptMessage(ctx, ctx.Locale.Tr("auth.invalid_code"))
 		return
@@ -748,7 +749,7 @@ func ActivatePost(ctx *context.Context) {
 	}
 
 	// TODO: ctx.Doer/ctx.Data["SignedUser"] could be nil or not the same user as the one being activated
-	user := user_model.VerifyUserActiveCode(ctx, code)
+	user := timelimitcode.VerifyUserTimeLimitCode(ctx, timelimitcode.PurposeActivateAccount, code)
 	if user == nil { // if code is wrong
 		renderActivationPromptMessage(ctx, ctx.Locale.Tr("auth.invalid_code"))
 		return
@@ -829,10 +830,9 @@ func handleAccountActivation(ctx *context.Context, user *user_model.User) {
 // ActivateEmail render the activate email page
 func ActivateEmail(ctx *context.Context) {
 	code := ctx.FormString("code")
-	emailStr := ctx.FormString("email")
 
 	// Verify code.
-	if email := user_model.VerifyActiveEmailCode(ctx, code, emailStr); email != nil {
+	if email := timelimitcode.VerifyEmailTimeLimitCode(ctx, timelimitcode.PurposeActivateEmail, code); email != nil {
 		if err := user_model.ActivateEmail(ctx, email); err != nil {
 			ctx.ServerError("ActivateEmail", err)
 			return
