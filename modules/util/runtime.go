@@ -11,3 +11,7 @@ func CallerFuncName(skip int) string {
 	funcName := runtime.FuncForPC(pc[0]).Name()
 	return funcName
 }
+
+func ThrowError(err error) {
+	panic(err)
+}

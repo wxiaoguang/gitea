@@ -30,3 +30,45 @@ func BenchmarkCallerFuncName(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkErrorPanic(b *testing.B) {
+	foo := func(i int) error {
+		return fmt.Errorf("err-%d", i)
+	}
+
+	handleErr := func(err error) {
+		_ = err
+	}
+
+	byPanic := func(i int) {
+		defer func() {
+			if err := recover().(error); err != nil {
+				handleErr(err)
+			}
+		}()
+		if err := foo(i); err != nil {
+			panic(err)
+		}
+	}
+
+	byIfErr := func(i int) {
+		err := foo(i)
+		if err != nil {
+			handleErr(err)
+		}
+	}
+
+	// BenchmarkErrorPanic/panic-12         	 8230132	       140.5 ns/op
+	b.Run("panic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			byPanic(i)
+		}
+	})
+
+	// BenchmarkErrorPanic/error-12         	15548337	        77.66 ns/op
+	b.Run("error", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			byIfErr(i)
+		}
+	})
+}
