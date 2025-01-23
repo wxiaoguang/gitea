@@ -108,6 +108,30 @@ c=2
 			),
 			lexerName: "Python",
 		},
+		{
+			name:      "obj.pas",
+			code:      "// comment",
+			want:      lines("// comment"),
+			lexerName: "ObjectPascal",
+		},
+		{
+			name:      "OLD.PAS",
+			code:      "// comment",
+			want:      lines("// comment"),
+			lexerName: "ObjectPascal",
+		},
+		{
+			name:      "f-sharp.fs",
+			code:      "let a=1",
+			want:      lines(``),
+			lexerName: "FSharp",
+		},
+		{
+			name:      "build.gradle.kts",
+			code:      "block { }",
+			want:      lines(""),
+			lexerName: "Kotlin",
+		},
 	}
 
 	for _, tt := range tests {
