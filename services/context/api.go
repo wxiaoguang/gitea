@@ -22,6 +22,9 @@ import (
 )
 
 // APIContext is a specific context for API service
+// ATTENTION: This struct should never be manually constructed in routes/services,
+// it has many internal details which should be carefully prepared by the framework.
+// If it is abused, it would cause strange bugs like panic/resource-leak.
 type APIContext struct {
 	*Base
 
@@ -293,7 +296,7 @@ func RepoRefForAPI(next http.Handler) http.Handler {
 			return
 		}
 
-		refName, _ := getRefNameLegacy(ctx.Base, ctx.Repo, ctx.PathParam("*"), ctx.FormTrim("ref"))
+		refName, _, _ := getRefNameLegacy(ctx.Base, ctx.Repo, ctx.PathParam("*"), ctx.FormTrim("ref"))
 		var err error
 
 		if ctx.Repo.GitRepo.IsBranchExist(refName) {
