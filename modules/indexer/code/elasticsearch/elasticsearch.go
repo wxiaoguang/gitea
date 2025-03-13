@@ -16,6 +16,7 @@ import (
 	"code.gitea.io/gitea/modules/charset"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/gitrepo"
+	"code.gitea.io/gitea/modules/indexer"
 	"code.gitea.io/gitea/modules/indexer/code/internal"
 	indexer_internal "code.gitea.io/gitea/modules/indexer/internal"
 	inner_elasticsearch "code.gitea.io/gitea/modules/indexer/internal/elasticsearch"
@@ -43,6 +44,10 @@ var _ internal.Indexer = &Indexer{}
 type Indexer struct {
 	inner                    *inner_elasticsearch.Indexer
 	indexer_internal.Indexer // do not composite inner_elasticsearch.Indexer directly to avoid exposing too much
+}
+
+func (b *Indexer) SupportedSearchModes() []indexer.SearchMode {
+	return indexer.SearchModesExactWords()
 }
 
 // NewIndexer creates a new elasticsearch indexer
@@ -142,7 +147,7 @@ func (b *Indexer) addUpdate(ctx context.Context, batchWriter git.WriteCloserErro
 	var err error
 	if !update.Sized {
 		var stdout string
-		stdout, _, err = git.NewCommand(ctx, "cat-file", "-s").AddDynamicArguments(update.BlobSha).RunStdString(&git.RunOpts{Dir: repo.RepoPath()})
+		stdout, _, err = git.NewCommand("cat-file", "-s").AddDynamicArguments(update.BlobSha).RunStdString(ctx, &git.RunOpts{Dir: repo.RepoPath()})
 		if err != nil {
 			return nil, err
 		}
@@ -359,13 +364,14 @@ func extractAggs(searchResult *elastic.SearchResult) []*internal.SearchResultLan
 
 // Search searches for codes and language stats by given conditions.
 func (b *Indexer) Search(ctx context.Context, opts *internal.SearchOptions) (int64, []*internal.SearchResult, []*internal.SearchResultLanguages, error) {
-	searchType := esMultiMatchTypePhrasePrefix
-	if opts.IsKeywordFuzzy {
-		searchType = esMultiMatchTypeBestFields
+	var contentQuery elastic.Query
+	if opts.SearchMode == indexer.SearchModeExact {
+		contentQuery = elastic.NewMatchPhraseQuery("content", opts.Keyword)
+	} else /* words */ {
+		contentQuery = elastic.NewMultiMatchQuery("content", opts.Keyword).Type(esMultiMatchTypeBestFields).Operator("and")
 	}
-
 	kwQuery := elastic.NewBoolQuery().Should(
-		elastic.NewMultiMatchQuery(opts.Keyword, "content").Type(searchType),
+		contentQuery,
 		elastic.NewMultiMatchQuery(opts.Keyword, "filename^10").Type(esMultiMatchTypePhrasePrefix),
 	)
 	query := elastic.NewBoolQuery()

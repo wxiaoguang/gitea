@@ -26,6 +26,7 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/base"
 	"code.gitea.io/gitea/modules/container"
+	"code.gitea.io/gitea/modules/indexer"
 	issue_indexer "code.gitea.io/gitea/modules/indexer/issues"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/markup/markdown"
@@ -417,7 +418,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 		IsPull:     optional.Some(isPullList),
 		SortType:   sortType,
 		IsArchived: optional.Some(false),
-		User:       ctx.Doer,
+		Doer:       ctx.Doer,
 	}
 	// --------------------------------------------------------------------------
 	// Build opts (IssuesOptions), which contains filter information.
@@ -429,7 +430,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 
 	// Get repository IDs where User/Org/Team has access.
 	if ctx.Org != nil && ctx.Org.Organization != nil {
-		opts.Org = ctx.Org.Organization
+		opts.Owner = ctx.Org.Organization.AsUser()
 		opts.Team = ctx.Org.Team
 
 		issue.PrepareFilterIssueLabels(ctx, 0, ctx.Org.Organization.AsUser())
@@ -447,7 +448,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 	ctx.Data["FilterAssigneeUsername"] = assigneeUsername
 	opts.AssigneeID = user.GetFilterUserIDByName(ctx, assigneeUsername)
 
-	isFuzzy := ctx.FormBool("fuzzy")
+	searchMode := ctx.FormString("search_mode")
 
 	// Search all repositories which
 	//
@@ -549,7 +550,9 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 	var issues issues_model.IssueList
 	{
 		issueIDs, _, err := issue_indexer.SearchIssues(ctx, issue_indexer.ToSearchOptions(keyword, opts).Copy(
-			func(o *issue_indexer.SearchOptions) { o.IsFuzzyKeyword = isFuzzy },
+			func(o *issue_indexer.SearchOptions) {
+				o.SearchMode = indexer.SearchModeType(searchMode)
+			},
 		))
 		if err != nil {
 			ctx.ServerError("issueIDsFromSearch", err)
@@ -578,7 +581,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 	// -------------------------------
 	issueStats, err := getUserIssueStats(ctx, ctxUser, filterMode, issue_indexer.ToSearchOptions(keyword, opts).Copy(
 		func(o *issue_indexer.SearchOptions) {
-			o.IsFuzzyKeyword = isFuzzy
+			o.SearchMode = indexer.SearchModeType(searchMode)
 		},
 	))
 	if err != nil {
@@ -633,7 +636,8 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 	ctx.Data["ViewType"] = viewType
 	ctx.Data["SortType"] = sortType
 	ctx.Data["IsShowClosed"] = isShowClosed
-	ctx.Data["IsFuzzy"] = isFuzzy
+	ctx.Data["SearchModes"] = issue_indexer.SupportedSearchModes()
+	ctx.Data["SelectedSearchMode"] = ctx.FormTrim("search_mode")
 
 	if isShowClosed {
 		ctx.Data["State"] = "closed"
@@ -724,7 +728,7 @@ func UsernameSubRoute(ctx *context.Context) {
 
 		// check view permissions
 		if !user_model.IsUserVisibleToViewer(ctx, ctx.ContextUser, ctx.Doer) {
-			ctx.NotFound("user", fmt.Errorf("%s", ctx.ContextUser.Name))
+			ctx.NotFound(fmt.Errorf("%s", ctx.ContextUser.Name))
 			return false
 		}
 		return true
@@ -744,7 +748,7 @@ func UsernameSubRoute(ctx *context.Context) {
 		}
 	case strings.HasSuffix(username, ".rss"):
 		if !setting.Other.EnableFeed {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if reloadParam(".rss") {
@@ -752,7 +756,7 @@ func UsernameSubRoute(ctx *context.Context) {
 		}
 	case strings.HasSuffix(username, ".atom"):
 		if !setting.Other.EnableFeed {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if reloadParam(".atom") {

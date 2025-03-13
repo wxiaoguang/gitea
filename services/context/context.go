@@ -79,9 +79,9 @@ type webContextKeyType struct{}
 
 var WebContextKey = webContextKeyType{}
 
-func GetWebContext(req *http.Request) *Context {
-	ctx, _ := req.Context().Value(WebContextKey).(*Context)
-	return ctx
+func GetWebContext(ctx context.Context) *Context {
+	webCtx, _ := ctx.Value(WebContextKey).(*Context)
+	return webCtx
 }
 
 // ValidateContext is a special context for form validation middleware. It may be different from other contexts.
@@ -135,6 +135,7 @@ func NewWebContext(base *Base, render Render, session session.Store) *Context {
 	}
 	ctx.TemplateContext = NewTemplateContextForWeb(ctx)
 	ctx.Flash = &middleware.Flash{DataStore: ctx, Values: url.Values{}}
+	ctx.SetContextValue(WebContextKey, ctx)
 	return ctx
 }
 
@@ -165,7 +166,6 @@ func Contexter() func(next http.Handler) http.Handler {
 			ctx.PageData = map[string]any{}
 			ctx.Data["PageData"] = ctx.PageData
 
-			ctx.Base.SetContextValue(WebContextKey, ctx)
 			ctx.Csrf = NewCSRFProtector(csrfOpts)
 
 			// get the last flash message from cookie
@@ -191,7 +191,7 @@ func Contexter() func(next http.Handler) http.Handler {
 				}
 			}
 
-			httpcache.SetCacheControlInHeader(ctx.Resp.Header(), 0, "no-transform")
+			httpcache.SetCacheControlInHeader(ctx.Resp.Header(), &httpcache.CacheControlOptions{NoTransform: true})
 			ctx.Resp.Header().Set(`X-Frame-Options`, setting.CORSConfig.XFrameOptions)
 
 			ctx.Data["SystemConfig"] = setting.Config()
@@ -213,13 +213,16 @@ func Contexter() func(next http.Handler) http.Handler {
 // Attention: this function changes ctx.Data and ctx.Flash
 // If HasError is called, then before Redirect, the error message should be stored by ctx.Flash.Error(ctx.GetErrMsg()) again.
 func (ctx *Context) HasError() bool {
-	hasErr, ok := ctx.Data["HasError"]
-	if !ok {
+	hasErr, _ := ctx.Data["HasError"].(bool)
+	hasErr = hasErr || ctx.Flash.ErrorMsg != ""
+	if !hasErr {
 		return false
 	}
-	ctx.Flash.ErrorMsg = ctx.GetErrMsg()
+	if ctx.Flash.ErrorMsg == "" {
+		ctx.Flash.ErrorMsg = ctx.GetErrMsg()
+	}
 	ctx.Data["Flash"] = ctx.Flash
-	return hasErr.(bool)
+	return hasErr
 }
 
 // GetErrMsg returns error message in form validation.

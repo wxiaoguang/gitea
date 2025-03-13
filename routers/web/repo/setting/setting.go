@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	actions_model "code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/models/organization"
 	"code.gitea.io/gitea/models/perm"
@@ -189,13 +188,13 @@ func SettingsPost(ctx *context.Context) {
 
 	case "mirror":
 		if !setting.Mirror.Enabled || !repo.IsMirror || repo.IsArchived {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
 		pullMirror, err := repo_model.GetMirrorByRepoID(ctx, ctx.Repo.Repository.ID)
 		if err == repo_model.ErrMirrorNotExist {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 		if err != nil {
@@ -283,7 +282,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "mirror-sync":
 		if !setting.Mirror.Enabled || !repo.IsMirror || repo.IsArchived {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -294,13 +293,13 @@ func SettingsPost(ctx *context.Context) {
 
 	case "push-mirror-sync":
 		if !setting.Mirror.Enabled {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
 		m, _, _ := repo_model.GetPushMirrorByIDAndRepoID(ctx, form.PushMirrorID, repo.ID)
 		if m == nil {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -311,7 +310,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "push-mirror-update":
 		if !setting.Mirror.Enabled || repo.IsArchived {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -327,7 +326,7 @@ func SettingsPost(ctx *context.Context) {
 
 		m, _, _ := repo_model.GetPushMirrorByIDAndRepoID(ctx, form.PushMirrorID, repo.ID)
 		if m == nil {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -349,7 +348,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "push-mirror-remove":
 		if !setting.Mirror.Enabled || repo.IsArchived {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -359,7 +358,7 @@ func SettingsPost(ctx *context.Context) {
 
 		m, _, _ := repo_model.GetPushMirrorByIDAndRepoID(ctx, form.PushMirrorID, repo.ID)
 		if m == nil {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -378,7 +377,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "push-mirror-add":
 		if setting.Mirror.DisableNewPush || repo.IsArchived {
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -650,7 +649,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "admin":
 		if !ctx.Doer.IsAdmin {
-			ctx.Error(http.StatusForbidden)
+			ctx.HTTPError(http.StatusForbidden)
 			return
 		}
 
@@ -670,7 +669,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "admin_index":
 		if !ctx.Doer.IsAdmin {
-			ctx.Error(http.StatusForbidden)
+			ctx.HTTPError(http.StatusForbidden)
 			return
 		}
 
@@ -682,12 +681,12 @@ func SettingsPost(ctx *context.Context) {
 			}
 		case "code":
 			if !setting.Indexer.RepoIndexerEnabled {
-				ctx.Error(http.StatusForbidden)
+				ctx.HTTPError(http.StatusForbidden)
 				return
 			}
 			code.UpdateRepoIndexer(ctx.Repo.Repository)
 		default:
-			ctx.NotFound("", nil)
+			ctx.NotFound(nil)
 			return
 		}
 
@@ -698,7 +697,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "convert":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if repo.Name != form.RepoName {
@@ -707,7 +706,7 @@ func SettingsPost(ctx *context.Context) {
 		}
 
 		if !repo.IsMirror {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		repo.IsMirror = false
@@ -725,7 +724,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "convert_fork":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if err := repo.LoadOwner(ctx); err != nil {
@@ -738,7 +737,7 @@ func SettingsPost(ctx *context.Context) {
 		}
 
 		if !repo.IsFork {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 
@@ -762,7 +761,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "transfer":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if repo.Name != form.RepoName {
@@ -820,7 +819,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "cancel_transfer":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 
@@ -846,7 +845,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "delete":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if repo.Name != form.RepoName {
@@ -870,7 +869,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "delete-wiki":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusNotFound)
+			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 		if repo.Name != form.RepoName {
@@ -889,7 +888,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "archive":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusForbidden)
+			ctx.HTTPError(http.StatusForbidden)
 			return
 		}
 
@@ -906,7 +905,7 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		if err := actions_model.CleanRepoScheduleTasks(ctx, repo); err != nil {
+		if err := actions_service.CleanRepoScheduleTasks(ctx, repo); err != nil {
 			log.Error("CleanRepoScheduleTasks for archived repo %s/%s: %v", ctx.Repo.Owner.Name, repo.Name, err)
 		}
 
@@ -920,7 +919,7 @@ func SettingsPost(ctx *context.Context) {
 
 	case "unarchive":
 		if !ctx.Repo.IsOwner() {
-			ctx.Error(http.StatusForbidden)
+			ctx.HTTPError(http.StatusForbidden)
 			return
 		}
 
@@ -979,7 +978,7 @@ func SettingsPost(ctx *context.Context) {
 		ctx.Redirect(ctx.Repo.RepoLink + "/settings")
 
 	default:
-		ctx.NotFound("", nil)
+		ctx.NotFound(nil)
 	}
 }
 
