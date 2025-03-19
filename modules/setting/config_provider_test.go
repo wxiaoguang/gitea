@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigProviderBehaviors(t *testing.T) {
@@ -111,6 +112,25 @@ func TestNewConfigProviderFromFile(t *testing.T) {
 	bs, err = os.ReadFile(testFile)
 	assert.NoError(t, err)
 	assert.Equal(t, "[foo]\nk1 = a\n\n[bar]\nk1 = b\n", string(bs))
+}
+
+func TestNewConfigProviderFromFileWithSub(t *testing.T) {
+	testFile := t.TempDir() + "/test.ini"
+	// write "test.ini"
+	err := os.WriteFile(testFile, []byte("[foo]\nk1=a\nk2=b\n"), 0o666)
+	require.NoError(t, err)
+	_ = os.Mkdir(testFile+".d", 0777)
+	// write "test.ini.d/1.ini"
+	err = os.WriteFile(testFile+".d/1.ini", []byte("[foo]\nk1=new\n[bar]\nx=y\n"), 0o666)
+	require.NoError(t, err)
+	// both "test.ini" and "test.ini.d/1.ini" should be loaded
+	cfg, err := NewConfigProviderFromFile(testFile)
+	require.NoError(t, err)
+	sec, _ := cfg.NewSection("foo")
+	assert.Equal(t, "new", sec.Key("k1").String())
+	assert.Equal(t, "b", sec.Key("k2").String())
+	sec, _ = cfg.NewSection("bar")
+	assert.Equal(t, "y", sec.Key("x").String())
 }
 
 func TestNewConfigProviderForLocale(t *testing.T) {

@@ -211,6 +211,12 @@ func NewConfigProviderFromFile(file string) (ConfigProvider, error) {
 			}
 			loadedFromEmpty = false
 		}
+		subFiles, err := filepath.Glob(file + ".d/*.ini")
+		for _, subFile := range subFiles {
+			if err = cfg.Append(subFile); err != nil {
+				return nil, fmt.Errorf("failed to load config file %q: %v", subFile, err)
+			}
+		}
 	}
 
 	cfg.NameMapper = ini.SnackCase
