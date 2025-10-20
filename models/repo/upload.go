@@ -127,11 +127,11 @@ func DeleteUploads(ctx context.Context, uploads ...*Upload) (err error) {
 
 	for _, upload := range uploads {
 		localPath := upload.LocalPath()
-		isFile, err := util.IsFile(localPath)
+		isExist, err := util.IsExist(localPath)
 		if err != nil {
-			log.Error("Unable to check if %s is a file. Error: %v", localPath, err)
+			log.Error("Unable to check if %s exists. Error: %v", localPath, err)
 		}
-		if !isFile {
+		if !isExist {
 			continue
 		}
 

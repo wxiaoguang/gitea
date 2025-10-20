@@ -25,10 +25,7 @@ import (
 // There is a dependence on the database within RewriteAllPrincipalKeys & RegeneratePrincipalKeys
 // The sshOpLocker is used from ssh_key_authorized_keys.go
 
-const (
-	authorizedPrincipalsFile = "authorized_principals"
-	tplCommentPrefix         = `# gitea public key`
-)
+const authorizedPrincipalsFile = "authorized_principals"
 
 // RewriteAllPrincipalKeys removes any authorized principal and rewrite all keys from database again.
 // Note: db.GetEngine(ctx).Iterate does not get latest data after insert/delete, so we have to call this function
@@ -92,7 +89,13 @@ func rewriteAllPrincipalKeys(ctx context.Context) error {
 
 func regeneratePrincipalKeys(ctx context.Context, t io.StringWriter) error {
 	if err := db.GetEngine(ctx).Where("type = ?", asymkey_model.KeyTypePrincipal).Iterate(new(asymkey_model.PublicKey), func(idx int, bean any) (err error) {
-		_, err = t.WriteString((bean.(*asymkey_model.PublicKey)).AuthorizedString())
+		key := bean.(*asymkey_model.PublicKey)
+		authorizedString, err := asymkey_model.AuthorizedStringForKey(key)
+		if err != nil {
+			log.Debug("AuthorizedStringForKey(%s): %v", key, err)
+			return nil
+		}
+		_, err = t.WriteString(authorizedString)
 		return err
 	}); err != nil {
 		return err
@@ -114,7 +117,7 @@ func regeneratePrincipalKeys(ctx context.Context, t io.StringWriter) error {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.HasPrefix(line, tplCommentPrefix) {
+			if strings.HasPrefix(line, asymkey_model.AuthorizedStringCommentPrefix) {
 				scanner.Scan()
 				continue
 			}
