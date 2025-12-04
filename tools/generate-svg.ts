@@ -47,10 +47,6 @@ function processAssetsSvgFiles(pattern: string, opts: Opts = {}) {
   return glob(pattern).map((path) => processAssetsSvgFile(path, opts));
 }
 
-function lowercaseKeys(obj: Record<string, any>) {
-  return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value]));
-}
-
 async function processMaterialFileIcons() {
   const paths = glob('node_modules/material-icon-theme/icons/*.svg');
   const svgSymbols: Record<string, string> = {};
@@ -72,43 +68,56 @@ async function processMaterialFileIcons() {
 
   const vscodeExtensionsJson = await readFile(fileURLToPath(new URL(`generate-svg-vscode-extensions.json`, import.meta.url)), 'utf8');
   const vscodeExtensions = JSON.parse(vscodeExtensionsJson) as Record<string, string>;
-  const iconRulesJson = await readFile(fileURLToPath(new URL(`../node_modules/material-icon-theme/dist/material-icons.json`, import.meta.url)), 'utf8');
-  const iconRules = JSON.parse(iconRulesJson) as Manifest;
+
   // The rules are from VSCode material-icon-theme, we need to adjust them to our needs
   // 1. We only use lowercase filenames to match (it should be good enough for most cases and more efficient)
   // 2. We do not have a "Language ID" system:
   //    * https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers
   //    * https://github.com/microsoft/vscode/tree/1.98.0/extensions
-  delete iconRules.iconDefinitions;
 
-  if (iconRules.fileNames) {
-    iconRules.fileNames = lowercaseKeys(iconRules.fileNames);
-  }
-  if (iconRules.folderNames) {
-    iconRules.folderNames = lowercaseKeys(iconRules.folderNames);
-  }
-  if (iconRules.fileExtensions) {
-    iconRules.fileExtensions = lowercaseKeys(iconRules.fileExtensions);
-  }
+  const lowercaseKeys = (obj: Record<string, string>) => Object.fromEntries(Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value]));
 
-  // Use VSCode's "Language ID" mapping from its extensions
-  for (const [_, langIdExtMap] of Object.entries(vscodeExtensions)) {
-    for (const [langId, names] of Object.entries(langIdExtMap)) {
-      for (const name of names) {
-        const nameLower = name.toLowerCase();
-        if (nameLower[0] === '.') {
-          if (iconRules.fileExtensions) {
-            iconRules.fileExtensions[nameLower.substring(1)] ??= langId;
-          }
-        } else {
-          if (iconRules.fileNames) {
-            iconRules.fileNames[nameLower] ??= langId;
+  const processManifest = (m: Manifest) => {
+    m.fileNames = lowercaseKeys(m.fileNames!);
+    m.folderNames = lowercaseKeys(m.folderNames!);
+    m.fileExtensions = lowercaseKeys(m.fileExtensions!);
+  };
+
+  const addVsCodeExtensions = (m: Manifest) => {
+    // Use VSCode's "Language ID" mapping from its extensions
+    for (const [_, langIdExtMap] of Object.entries(vscodeExtensions)) {
+      for (const [langId, names] of Object.entries(langIdExtMap)) {
+        for (const name of names) {
+          const nameLower = name.toLowerCase();
+          if (nameLower[0] === '.') {
+            m.fileExtensions![nameLower.substring(1)] ??= langId;
+          } else {
+            m.fileNames![nameLower] ??= langId;
           }
         }
       }
     }
-  }
-  const iconRulesPretty = JSON.stringify(iconRules, null, 2);
+  };
+
+  const iconRulesJson = await readFile(fileURLToPath(new URL(`../node_modules/material-icon-theme/dist/material-icons.json`, import.meta.url)), 'utf8');
+  const iconRules = JSON.parse(iconRulesJson) as Manifest;
+  processManifest(iconRules);
+  addVsCodeExtensions(iconRules);
+  processManifest(iconRules.light!);
+  // NOTICE: "folderNamesExpanded" is not used at the moment
+  const giteaRules = {
+    folderNames: iconRules.folderNames,
+    fileExtensions: iconRules.fileExtensions,
+    fileNames: iconRules.fileNames,
+    languageIds: iconRules.languageIds,
+    light: {
+      fileExtensions: iconRules.light!.fileExtensions,
+      fileNames: iconRules.light!.fileNames,
+      languageIds: iconRules.light!.languageIds,
+      folderNames: iconRules.light!.folderNames,
+    },
+  };
+  const iconRulesPretty = JSON.stringify(giteaRules, null, 2);
   writeFileSync(fileURLToPath(new URL(`../options/fileicon/material-icon-rules.json`, import.meta.url)), iconRulesPretty);
 }
 

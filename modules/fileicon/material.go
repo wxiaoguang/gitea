@@ -17,10 +17,11 @@ import (
 )
 
 type materialIconRulesData struct {
-	FileNames      map[string]string `json:"fileNames"`
-	FolderNames    map[string]string `json:"folderNames"`
-	FileExtensions map[string]string `json:"fileExtensions"`
-	LanguageIDs    map[string]string `json:"languageIds"`
+	FileNames      map[string]string      `json:"fileNames"`
+	FolderNames    map[string]string      `json:"folderNames"`
+	FileExtensions map[string]string      `json:"fileExtensions"`
+	LanguageIDs    map[string]string      `json:"languageIds"`
+	Light          *materialIconRulesData `json:"light"`
 }
 
 type MaterialIconProvider struct {
@@ -128,20 +129,17 @@ func (m *MaterialIconProvider) findIconNameWithLangID(s string) string {
 	return ""
 }
 
-func (m *MaterialIconProvider) FindIconName(entry *EntryInfo) string {
-	if entry.EntryMode.IsSubModule() {
-		return "folder-git"
-	}
+func findIconNameInRules(m *MaterialIconProvider, rules *materialIconRulesData, entry *EntryInfo) string {
 
 	fileNameLower := strings.ToLower(entry.BaseName)
 	if entry.EntryMode.IsDir() {
-		if s, ok := m.rules.FolderNames[fileNameLower]; ok {
+		if s, ok := rules.FolderNames[fileNameLower]; ok {
 			return s
 		}
 		return util.Iif(entry.IsOpen, "folder-open", "folder")
 	}
 
-	if s, ok := m.rules.FileNames[fileNameLower]; ok {
+	if s, ok := rules.FileNames[fileNameLower]; ok {
 		if s = m.findIconNameWithLangID(s); s != "" {
 			return s
 		}
@@ -150,13 +148,25 @@ func (m *MaterialIconProvider) FindIconName(entry *EntryInfo) string {
 	for i := len(fileNameLower) - 1; i >= 0; i-- {
 		if fileNameLower[i] == '.' {
 			ext := fileNameLower[i+1:]
-			if s, ok := m.rules.FileExtensions[ext]; ok {
+			if s, ok := rules.FileExtensions[ext]; ok {
 				if s = m.findIconNameWithLangID(s); s != "" {
 					return s
 				}
 			}
 		}
 	}
+	return ""
+}
 
+func (m *MaterialIconProvider) FindIconName(entry *EntryInfo) string {
+	if entry.EntryMode.IsSubModule() {
+		return "folder-git"
+	}
+	if s := findIconNameInRules(m, m.rules.Light, entry); s != "" {
+		return s
+	}
+	if s := findIconNameInRules(m, m.rules, entry); s != "" {
+		return s
+	}
 	return "file"
 }
