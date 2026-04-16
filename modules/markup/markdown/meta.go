@@ -53,18 +53,16 @@ func isYAMLSeparator(line []byte) bool {
 	return true
 }
 
-// ExtractMetadata consumes a markdown file, parses YAML frontmatter,
+// ExtractMetadata consumes a Markdown file, parses YAML frontmatter,
 // and returns the frontmatter metadata separated from the markdown content
 func ExtractMetadata(contents string, out any) (string, error) {
-	body, err := ExtractMetadataBytes([]byte(contents), out)
+	_, body, err := ExtractMetadataBytes([]byte(contents), out)
 	return string(body), err
 }
 
 // ExtractMetadataBytes consumes a Markdown content, parses YAML frontmatter,
 // and returns the frontmatter metadata separated from the Markdown content
-func ExtractMetadataBytes(contents []byte, out any) ([]byte, error) {
-	var front, body []byte
-
+func ExtractMetadataBytes(contents []byte, out any) (front, body []byte, _ error) {
 	start, end := 0, len(contents)
 	idx := bytes.IndexByte(contents[start:], '\n')
 	if idx >= 0 {
@@ -73,7 +71,7 @@ func ExtractMetadataBytes(contents []byte, out any) ([]byte, error) {
 	line := contents[start:end]
 
 	if !isYAMLSeparator(line) {
-		return contents, errors.New("frontmatter must start with a separator line")
+		return nil, contents, errors.New("frontmatter must start with a separator line")
 	}
 	frontMatterStart := end + 1
 	for start = frontMatterStart; start < len(contents); start = end + 1 {
@@ -93,11 +91,11 @@ func ExtractMetadataBytes(contents []byte, out any) ([]byte, error) {
 	}
 
 	if len(front) == 0 {
-		return contents, errors.New("could not determine metadata")
+		return nil, contents, errors.New("could not determine metadata")
 	}
 
 	if err := yaml.Unmarshal(front, out); err != nil {
-		return contents, err
+		return nil, contents, err
 	}
-	return body, nil
+	return front, body, nil
 }

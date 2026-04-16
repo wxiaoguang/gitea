@@ -57,28 +57,21 @@ func (l *limitWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-// newParserContext creates a parser.Context with the render context set
-func newParserContext(ctx *markup.RenderContext) parser.Context {
-	pc := parser.NewContext()
-	pc.Set(renderContextKey, ctx)
-	return pc
-}
-
-type GlodmarkRender struct {
+type GoldmarkRender struct {
 	ctx *markup.RenderContext
 
 	goldmarkMarkdown goldmark.Markdown
 }
 
-func (r *GlodmarkRender) Convert(source []byte, writer io.Writer, opts ...parser.ParseOption) error {
+func (r *GoldmarkRender) Convert(source []byte, writer io.Writer, opts ...parser.ParseOption) error {
 	return r.goldmarkMarkdown.Convert(source, writer, opts...)
 }
 
-func (r *GlodmarkRender) Renderer() renderer.Renderer {
+func (r *GoldmarkRender) Renderer() renderer.Renderer {
 	return r.goldmarkMarkdown.Renderer()
 }
 
-func (r *GlodmarkRender) highlightingRenderer(w util.BufWriter, c highlighting.CodeBlockContext, entering bool) {
+func (r *GoldmarkRender) highlightingRenderer(w util.BufWriter, c highlighting.CodeBlockContext, entering bool) {
 	if entering {
 		languageBytes, _ := c.Language()
 		languageStr := giteautil.IfZero(string(languageBytes), "text")
@@ -138,11 +131,11 @@ func goldmarkDefaultParser() parser.Parser {
 	)
 }
 
-// SpecializedMarkdown sets up the Gitea specific markdown extensions
-func SpecializedMarkdown(ctx *markup.RenderContext) *GlodmarkRender {
+// SpecializedMarkdown sets up the Gitea specific Markdown extensions
+func SpecializedMarkdown(ctx *markup.RenderContext) *GoldmarkRender {
 	// TODO: it could use a pool to cache the renderers to reuse them with different contexts
 	// at the moment it is fast enough (see the benchmarks)
-	r := &GlodmarkRender{ctx: ctx}
+	r := &GoldmarkRender{ctx: ctx}
 	r.goldmarkMarkdown = goldmark.New(
 		goldmark.WithParser(goldmarkDefaultParser()),
 		goldmark.WithExtensions(
@@ -184,19 +177,13 @@ func SpecializedMarkdown(ctx *markup.RenderContext) *GlodmarkRender {
 // render calls goldmark render to convert Markdown to HTML
 // NOTE: The output of this method MUST get sanitized separately!!!
 func render(ctx *markup.RenderContext, input io.Reader, output io.Writer) error {
-	converter := SpecializedMarkdown(ctx)
-	lw := &limitWriter{
-		w:     output,
-		limit: setting.UI.MaxDisplayFileSize * 3,
-	}
-
-	// FIXME: Don't read all to memory, but goldmark doesn't support
-	buf, err := io.ReadAll(input)
+	bufAll, err := io.ReadAll(io.LimitReader(input, setting.UI.MaxDisplayFileSize*3))
 	if err != nil {
 		log.Error("Unable to ReadAll: %v", err)
 		return err
 	}
-	buf = giteautil.NormalizeEOL(buf)
+
+	bufAll = giteautil.NormalizeEOL(bufAll)
 
 	// FIXME: should we include a timeout to abort the renderer if it takes too long?
 	defer func() {
@@ -205,25 +192,25 @@ func render(ctx *markup.RenderContext, input io.Reader, output io.Writer) error 
 			return
 		}
 
-		log.Error("Panic in markdown: %v\n%s", err, log.Stack(2))
-		escapedHTML := template.HTMLEscapeString(giteautil.UnsafeBytesToString(buf))
+		log.Error("Panic in markdown render: %v\n%s", err, log.Stack(2))
+		escapedHTML := template.HTMLEscapeString(giteautil.UnsafeBytesToString(bufAll))
 		_, _ = output.Write(giteautil.UnsafeStringToBytes(escapedHTML))
 	}()
 
-	pc := newParserContext(ctx)
-
-	// Preserve original length.
-	bufWithMetadataLength := len(buf)
-
 	rc := &RenderConfig{Meta: markup.RenderMetaAsDetails}
-	buf, _ = ExtractMetadataBytes(buf, rc)
+	bufMeta, bufBody, _ := ExtractMetadataBytes(bufAll, rc)
+	rc.metaLength = len(bufMeta)
 
-	metaLength := max(bufWithMetadataLength-len(buf), 0)
-	rc.metaLength = metaLength
-
+	pc := parser.NewContext()
+	pc.Set(renderContextKey, ctx)
 	pc.Set(renderConfigKey, rc)
 
-	if err := converter.Convert(buf, lw, parser.WithContext(pc)); err != nil {
+	lw := &limitWriter{
+		w:     output,
+		limit: setting.UI.MaxDisplayFileSize * 3,
+	}
+	converter := SpecializedMarkdown(ctx)
+	if err := converter.Convert(bufBody, lw, parser.WithContext(pc)); err != nil {
 		log.Error("Unable to render: %v", err)
 		return err
 	}
